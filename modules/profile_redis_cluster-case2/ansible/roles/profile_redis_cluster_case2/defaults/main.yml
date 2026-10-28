@@ -1,0 +1,27 @@
+---
+# Redis cluster node configuration
+profile_redis_cluster_case2_redis_port: 6379
+profile_redis_cluster_case2_maxmemory_mb: 2048
+profile_redis_cluster_case2_maxmemory_policy: allkeys-lru
+# Redis persistence settings
+profile_redis_cluster_case2_appendonly: true
+profile_redis_cluster_case2_appendfsync: everysec
+# Redis bind address
+profile_redis_cluster_case2_bind: 0.0.0.0
+# Redis package management
+profile_redis_cluster_case2_manage_package: true
+# myapp artifact deployment
+profile_redis_cluster_case2_myapp_version: 2.1.0
+profile_redis_cluster_case2_myapp_url: https://artifacts.internal/myapp-2.1.0.tar.gz
+profile_redis_cluster_case2_myapp_install_dir: /opt/myapp
+# Enterprise Scheduler registration
+profile_redis_cluster_case2_scheduler_schedule: daily
+profile_redis_cluster_case2_scheduler_name: redis-node
+profile_redis_cluster_case2_schedulerctl_bin: /usr/local/bin/schedulerctl
+# Health check endpoint
+profile_redis_cluster_case2_health_check_url: http://localhost:8080/health
+profile_redis_cluster_case2_health_check_file: /var/lib/redis/health_check.json
+# Redis log directory
+profile_redis_cluster_case2_log_dir: /var/log/redis
+# Secure logging toggle — set to false only for debugging
+profile_redis_cluster_case2_secure_logging: true

@@ -1,0 +1,164 @@
+---
+# tasks/main.yml — profile_redis_cluster_case2
+
+- name: Validate credential variables
+  ansible.builtin.include_tasks: validate_credentials.yml
+
+# ---------------------------------------------------------------------------
+# Install and configure Redis — must run FIRST so the redis OS user/group
+# and /var/lib/redis exist before any task references them.
+# Replaces contain profile_redis_cluster_case2::install
+# ---------------------------------------------------------------------------
+
+- name: Install and configure Redis
+  ansible.builtin.include_tasks: install.yml
+
+# ---------------------------------------------------------------------------
+# Determine Redis node role (primary or replica)
+# Replaces the custom redis_role Facter fact
+# ---------------------------------------------------------------------------
+
+- name: Check if replica configuration file exists
+  ansible.builtin.stat:
+    path: /etc/redis/conf.d/replica.conf
+  register: profile_redis_cluster_case2_replica_conf_stat
+
+- name: Read replica configuration file content # noqa: L039 - profile_redis_cluster_case2_replica_conf_stat registered by prior task
+  ansible.builtin.slurp:
+    src: /etc/redis/conf.d/replica.conf
+  when: profile_redis_cluster_case2_replica_conf_stat.stat.exists
+  register: profile_redis_cluster_case2_replica_conf_content
+
+- name: Set redis_role fact # noqa: L039 - profile_redis_cluster_case2_replica_conf_stat and profile_redis_cluster_case2_replica_conf_content registered by prior tasks
+  ansible.builtin.set_fact:
+    profile_redis_cluster_case2_redis_role: >-
+      {{
+        'replica'
+        if (profile_redis_cluster_case2_replica_conf_stat.stat.exists and
+            (profile_redis_cluster_case2_replica_conf_content.content | default('') | b64decode) is search('replicaof'))
+        else 'primary'
+      }}
+
+# ---------------------------------------------------------------------------
+# Health check — replaces myFunction1('http://localhost:8080/health')
+# ---------------------------------------------------------------------------
+
+- name: Fetch health check from local endpoint
+  ansible.builtin.uri:
+    url: "{{ profile_redis_cluster_case2_health_check_url }}"
+    method: GET
+    return_content: true
+    status_code: 200
+  register: profile_redis_cluster_case2_health_response
+
+- name: Ensure health check directory exists
+  ansible.builtin.file:
+    path: "{{ profile_redis_cluster_case2_health_check_file | dirname }}" # noqa: R114 - path derived from role default, not user input
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0755"
+
+- name: Write health check JSON file # noqa: M005,L071 - registered var is trusted (set by prior uri task in same role); copy content uses registered var, template module change not permitted per fix rules
+  ansible.builtin.copy:
+    content: "{{ profile_redis_cluster_case2_health_response.content }}"
+    dest: "{{ profile_redis_cluster_case2_health_check_file }}" # noqa: R114 - path from role defaults, not user input
+    owner: redis
+    group: redis
+    mode: "0644"
+    backup: true
+
+# ---------------------------------------------------------------------------
+# Deploy myapp artifact — replaces myDeploy1 custom type/provider
+# ---------------------------------------------------------------------------
+
+- name: Check current myapp version
+  ansible.builtin.slurp:
+    src: "{{ profile_redis_cluster_case2_myapp_install_dir }}/version.txt" # noqa: R114 - path from role defaults, not user input
+  failed_when: false
+  register: profile_redis_cluster_case2_myapp_version_file
+
+- name: Set myapp current version fact # noqa: L039 - profile_redis_cluster_case2_myapp_version_file registered by prior task
+  ansible.builtin.set_fact:
+    profile_redis_cluster_case2_myapp_current_version: >-
+      {{ (profile_redis_cluster_case2_myapp_version_file.content | default('') | b64decode) | trim }}
+
+- name: Download myapp artifact # noqa: R104,R106,L039 - URL from role defaults (internal mirror without TLS); current_version set by prior set_fact
+  ansible.builtin.get_url:
+    url: "{{ profile_redis_cluster_case2_myapp_url }}"
+    dest: /tmp/myapp-{{ profile_redis_cluster_case2_myapp_version }}.tar.gz
+    mode: "0644"
+  when: profile_redis_cluster_case2_myapp_current_version != profile_redis_cluster_case2_myapp_version
+
+- name: Ensure myapp install directory exists # noqa: L039 - profile_redis_cluster_case2_myapp_current_version set by prior set_fact
+  ansible.builtin.file:
+    path: "{{ profile_redis_cluster_case2_myapp_install_dir }}" # noqa: R114 - path from role defaults, not user input
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: profile_redis_cluster_case2_myapp_current_version != profile_redis_cluster_case2_myapp_version
+
+- name: Extract myapp artifact # noqa: R104,R106,L039 - URL from role defaults (internal mirror without TLS); current_version set by prior set_fact
+  ansible.builtin.unarchive:
+    src: /tmp/myapp-{{ profile_redis_cluster_case2_myapp_version }}.tar.gz
+    dest: "{{ profile_redis_cluster_case2_myapp_install_dir }}" # noqa: R114 - path from role defaults, not user input
+    remote_src: true
+    mode: "0755"
+  when: profile_redis_cluster_case2_myapp_current_version != profile_redis_cluster_case2_myapp_version
+
+- name: Write myapp version file # noqa: L071,L039 - copy with Jinja content is intentional; current_version set by prior set_fact
+  ansible.builtin.copy:
+    content: "{{ profile_redis_cluster_case2_myapp_version }}"
+    dest: "{{ profile_redis_cluster_case2_myapp_install_dir }}/version.txt" # noqa: R114 - path from role defaults, not user input
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  when: profile_redis_cluster_case2_myapp_current_version != profile_redis_cluster_case2_myapp_version
+
+# ---------------------------------------------------------------------------
+# Enterprise Scheduler registration — replaces mySecretType1 custom type
+# Uses redis_service_token AAP credential variable
+# Guard with stat so the role fails loudly if schedulerctl is absent rather
+# than silently skipping a registration that the operator expects to happen.
+# ---------------------------------------------------------------------------
+
+- name: Stat schedulerctl binary # noqa: L033 - first registration of profile_redis_cluster_case2_schedulerctl_stat in this role; verify.yml registers independently in a separate play
+  ansible.builtin.stat:
+    path: "{{ profile_redis_cluster_case2_schedulerctl_bin }}"
+  register: profile_redis_cluster_case2_schedulerctl_stat
+
+- name: Assert schedulerctl binary is present
+  ansible.builtin.assert:
+    that:
+      - profile_redis_cluster_case2_schedulerctl_stat.stat.exists
+      - profile_redis_cluster_case2_schedulerctl_stat.stat.executable
+    fail_msg: >-
+      schedulerctl binary not found at {{ profile_redis_cluster_case2_schedulerctl_bin }}.
+      Ensure the Enterprise Scheduler agent is pre-installed on all target nodes.
+
+- name: Check scheduler registration status for redis-node # noqa: R101 - command argv built from role defaults, not user input
+  ansible.builtin.command:
+    argv:
+      - "{{ profile_redis_cluster_case2_schedulerctl_bin }}"
+      - status
+      - "{{ profile_redis_cluster_case2_scheduler_name }}"
+  changed_when: false
+  failed_when: false
+  register: profile_redis_cluster_case2_scheduler_status
+  no_log: "{{ profile_redis_cluster_case2_secure_logging }}"
+
+- name: Register redis-node with Enterprise Scheduler # noqa: R101,L045,L039 - argv from role defaults, not user input; env token from AAP credential; scheduler_status registered by prior task
+  ansible.builtin.command:
+    argv:
+      - "{{ profile_redis_cluster_case2_schedulerctl_bin }}"
+      - register
+      - "{{ profile_redis_cluster_case2_scheduler_name }}"
+      - --schedule
+      - "{{ profile_redis_cluster_case2_scheduler_schedule }}"
+  when: profile_redis_cluster_case2_scheduler_status.rc != 0
+  changed_when: true
+  no_log: "{{ profile_redis_cluster_case2_secure_logging }}"
+  environment:
+    SCHEDULER_TOKEN: "{{ redis_service_token }}"

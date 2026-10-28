@@ -1,0 +1,90 @@
+---
+argument_specs:
+  main:
+    short_description: Deploy and configure a Redis cluster node
+    description:
+      - Installs Redis, writes a configuration file, creates the log directory, and starts the Redis service.
+      - Determines whether the node is a primary or replica by inspecting /etc/redis/conf.d/replica.conf (mirrors the redis_role Facter fact).
+      - Discovers cluster peers from an Ansible inventory group (replaces the PuppetDB query used in the original Puppet module).
+      - Performs an HTTP health check against a configurable endpoint before proceeding with installation (replaces myFunction1 and myType1).
+    options:
+      profile_redis_cluster_case1_redis_port:
+        type: int
+        required: false
+        default: 6379
+        description: TCP port Redis listens on.
+      profile_redis_cluster_case1_redis_bind:
+        type: str
+        required: false
+        default: 0.0.0.0
+        description: IP address Redis binds to. Defaults to all interfaces.
+      profile_redis_cluster_case1_maxmemory_mb:
+        type: int
+        required: false
+        default: 2048
+        description: Maximum memory Redis may use, in megabytes.
+      profile_redis_cluster_case1_maxmemory_policy:
+        type: str
+        required: false
+        default: allkeys-lru
+        description: >-
+          Redis eviction policy applied when the maxmemory limit is reached
+          (e.g. allkeys-lru, volatile-lru, noeviction).
+      profile_redis_cluster_case1_appendonly:
+        type: bool
+        required: false
+        default: true
+        description: Whether to enable Redis AOF (Append-Only File) persistence.
+      profile_redis_cluster_case1_appendfsync:
+        type: str
+        required: false
+        default: everysec
+        description: >-
+          AOF fsync policy. Valid values are always, everysec, or no.
+      profile_redis_cluster_case1_log_dir:
+        type: str
+        required: false
+        default: /var/log/redis
+        description: Path to the Redis log directory.
+      profile_redis_cluster_case1_log_dir_owner:
+        type: str
+        required: false
+        default: redis
+        description: Owner of the Redis log directory.
+      profile_redis_cluster_case1_log_dir_group:
+        type: str
+        required: false
+        default: redis
+        description: Group owner of the Redis log directory.
+      profile_redis_cluster_case1_log_dir_mode:
+        type: str
+        required: false
+        default: "0755"
+        description: Permissions mode of the Redis log directory.
+      profile_redis_cluster_case1_health_check_url:
+        type: str
+        required: false
+        default: http://localhost:8080/health
+        description: >-
+          URL of the HTTP health check endpoint. The role performs a GET request
+          and fails if the response is not a 2xx status code.
+      profile_redis_cluster_case1_cluster_group:
+        type: str
+        required: false
+        default: redis_cluster
+        description: >-
+          Ansible inventory group name whose members form the Redis cluster.
+          Used to build the redis_nodes peer list (replaces the PuppetDB query).
+      profile_redis_cluster_case1_secure_logging:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          When true, tasks that handle the Redis password suppress their output
+          via no_log. Set to false only for debugging.
+      redis_password:
+        type: str
+        required: true
+        description: >-
+          Redis requirepass value. Injected at runtime by an AAP credential type;
+          do NOT store in plaintext in inventory or vars files.

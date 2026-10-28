@@ -1,0 +1,34 @@
+---
+# Equivalent of manifests/install.pp — installs Redis and creates the log directory.
+# The Puppet module delegated all Redis package/service/config management to the
+# external 'redis' class; here we replicate that directly with Ansible modules.
+
+- name: Install Redis package
+  ansible.builtin.package:
+    name: redis
+    state: present
+
+- name: Ensure Redis log directory exists
+  ansible.builtin.file:
+    path: "{{ profile_redis_cluster_case1_log_dir }}" # noqa: R114 - path from role-defined variable, not user input
+    state: directory
+    owner: "{{ profile_redis_cluster_case1_log_dir_owner }}"
+    group: "{{ profile_redis_cluster_case1_log_dir_group }}"
+    mode: "{{ profile_redis_cluster_case1_log_dir_mode }}"
+
+- name: Deploy Redis configuration
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: /etc/redis/redis.conf
+    owner: redis
+    group: redis
+    mode: "0640"
+    backup: true
+  notify: Restart redis
+  no_log: "{{ profile_redis_cluster_case1_secure_logging }}"
+
+- name: Enable and start Redis service
+  ansible.builtin.service:
+    name: redis
+    state: started
+    enabled: true

@@ -1,0 +1,39 @@
+---
+# Equivalent of lib/facter/redis_role.rb — determines whether this node is a Redis primary or replica
+# by inspecting /etc/redis/conf.d/replica.conf (mirrors the custom Facter fact logic).
+
+- name: Check replica config file existence
+  ansible.builtin.stat:
+    path: /etc/redis/conf.d/replica.conf
+  register: profile_redis_cluster_case1_replica_conf_stat
+
+- name: Read replica config contents # noqa: L039 - profile_redis_cluster_case1_replica_conf_stat is registered by the prior stat task
+  ansible.builtin.slurp:
+    src: /etc/redis/conf.d/replica.conf
+  when: profile_redis_cluster_case1_replica_conf_stat.stat.exists
+  register: profile_redis_cluster_case1_replica_conf_content
+
+# Set to 'replica' only when the file exists AND contains the replicaof directive.
+# The b64decode expression is only evaluated when the file exists (slurp ran successfully).
+- name: Set redis_role fact (replica — file exists and contains replicaof directive) # noqa: L039 - both vars registered by prior tasks in this file
+  ansible.builtin.set_fact:
+    redis_role: replica
+  when:
+    - profile_redis_cluster_case1_replica_conf_stat.stat.exists
+    - "'replicaof' in (profile_redis_cluster_case1_replica_conf_content.content | b64decode)"
+
+# Set to 'primary' when the file is absent. Evaluated independently of the slurp result,
+# so profile_redis_cluster_case1_replica_conf_content.content is never referenced here.
+- name: Set redis_role fact (primary — replica config file is absent) # noqa: L039 - profile_redis_cluster_case1_replica_conf_stat is registered by the prior stat task
+  ansible.builtin.set_fact:
+    redis_role: primary
+  when: not profile_redis_cluster_case1_replica_conf_stat.stat.exists
+
+# Set to 'primary' when the file exists but does NOT contain the replicaof directive.
+# Safe to reference .content here because the slurp task ran (file exists).
+- name: Set redis_role fact (primary — replica config present but lacks replicaof directive) # noqa: L039 - both vars registered by prior tasks in this file
+  ansible.builtin.set_fact:
+    redis_role: primary
+  when:
+    - profile_redis_cluster_case1_replica_conf_stat.stat.exists
+    - "'replicaof' not in (profile_redis_cluster_case1_replica_conf_content.content | b64decode)"

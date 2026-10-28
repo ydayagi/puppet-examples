@@ -1,0 +1,15 @@
+# Redis configuration — managed by Ansible (profile_redis_cluster_case1)
+# DO NOT edit manually; changes will be overwritten on the next Ansible run.
+
+bind {{ profile_redis_cluster_case1_redis_bind }}
+port {{ profile_redis_cluster_case1_redis_port }}
+
+requirepass {{ redis_password }}
+
+maxmemory {{ profile_redis_cluster_case1_maxmemory_mb }}mb
+maxmemory-policy {{ profile_redis_cluster_case1_maxmemory_policy }}
+
+appendonly {{ 'yes' if profile_redis_cluster_case1_appendonly else 'no' }}
+appendfsync {{ profile_redis_cluster_case1_appendfsync }}
+
+logfile {{ profile_redis_cluster_case1_log_dir }}/redis-server.log

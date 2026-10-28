@@ -1,0 +1,8 @@
+[
+  {
+    "name": "profile_redis_cluster_case1",
+    "path": ".",
+    "description": "Redis cluster node profile that installs and configures a Redis server instance, managing the package, service, configuration (bind address, port, authentication, persistence, memory policy), and log directory. Includes custom Facter fact for node role detection, a custom HTTP health-check function, and a custom type/provider for HTTP reachability enforcement.",
+    "technology": "Puppet"
+  }
+]

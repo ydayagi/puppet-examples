@@ -1,0 +1,19 @@
+---
+# Redis instance configuration
+profile_redis_cluster_case1_redis_port: 6379
+profile_redis_cluster_case1_redis_bind: 0.0.0.0
+profile_redis_cluster_case1_maxmemory_mb: 2048
+profile_redis_cluster_case1_maxmemory_policy: allkeys-lru
+profile_redis_cluster_case1_appendonly: true
+profile_redis_cluster_case1_appendfsync: everysec
+# Redis log directory
+profile_redis_cluster_case1_log_dir: /var/log/redis
+profile_redis_cluster_case1_log_dir_owner: redis
+profile_redis_cluster_case1_log_dir_group: redis
+profile_redis_cluster_case1_log_dir_mode: "0755"
+# Health check endpoint
+profile_redis_cluster_case1_health_check_url: http://localhost:8080/health
+# Cluster peer discovery — override with inventory group name containing Redis cluster nodes
+profile_redis_cluster_case1_cluster_group: redis_cluster
+# Secure logging — set to false only for debugging; hides secret variable output
+profile_redis_cluster_case1_secure_logging: true

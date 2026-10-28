@@ -1,0 +1,190 @@
+---
+# ---------------------------------------------------------------------------
+# Play 1: Verify filesystem artifacts
+# ---------------------------------------------------------------------------
+- name: Verify filesystem artifacts
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Stat filesystem paths created by the role
+      ansible.builtin.stat:
+        path: "{{ item_path }}"  # noqa: R114 - paths are fixed literals from role defaults, not user input
+      loop:
+        - /var/lib/redis/health_check.json
+        - /var/log/redis
+        - /opt/myapp/version.txt
+        - /opt/myapp
+        - /etc/redis/redis.conf
+      loop_control:
+        loop_var: item_path
+      register: profile_redis_cluster_case2_path_stats
+
+    - name: Assert all expected paths exist
+      ansible.builtin.assert:
+        that:
+          - item_stat['stat']['exists']
+        fail_msg: "Expected path does not exist"
+      loop: "{{ profile_redis_cluster_case2_path_stats['results'] }}"
+      loop_control:
+        loop_var: item_stat
+
+    - name: Assert /var/log/redis is a directory with correct mode
+      ansible.builtin.assert:
+        that:
+          - item_dir['stat']['isdir']
+          - item_dir['stat']['pw_name'] == 'redis'
+          - item_dir['stat']['gr_name'] == 'redis'
+          - item_dir['stat']['mode'] == '0755'
+        fail_msg: "Log directory has unexpected attributes"
+      loop: "{{ profile_redis_cluster_case2_path_stats['results'] | selectattr('item_path', 'equalto', '/var/log/redis') | list }}"
+      loop_control:
+        loop_var: item_dir
+
+    - name: Assert health_check.json has correct ownership and mode
+      ansible.builtin.assert:
+        that:
+          - item_hc['stat']['pw_name'] == 'redis'
+          - item_hc['stat']['gr_name'] == 'redis'
+          - item_hc['stat']['mode'] == '0644'
+          - item_hc['stat']['size'] > 0
+        fail_msg: "health_check.json has unexpected attributes"
+      loop: "{{ profile_redis_cluster_case2_path_stats['results'] | selectattr('item_path', 'equalto', '/var/lib/redis/health_check.json') | list }}"
+      loop_control:
+        loop_var: item_hc
+
+    - name: Assert redis.conf has correct ownership and mode
+      ansible.builtin.assert:
+        that:
+          - item_conf['stat']['pw_name'] == 'redis'
+          - item_conf['stat']['gr_name'] == 'redis'
+          - item_conf['stat']['mode'] == '0640'
+        fail_msg: "redis.conf has unexpected attributes"
+      loop: "{{ profile_redis_cluster_case2_path_stats['results'] | selectattr('item_path', 'equalto', '/etc/redis/redis.conf') | list }}"
+      loop_control:
+        loop_var: item_conf
+
+# ---------------------------------------------------------------------------
+# Play 2: Verify file contents
+# ---------------------------------------------------------------------------
+- name: Verify file contents
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Slurp myapp version file
+      ansible.builtin.slurp:
+        src: /opt/myapp/version.txt
+      register: profile_redis_cluster_case2_version_slurp
+
+    - name: Assert myapp version is 2.1.0
+      ansible.builtin.assert:
+        that:
+          - (profile_redis_cluster_case2_version_slurp['content'] | b64decode | trim) == '2.1.0'
+        fail_msg: "myapp version.txt does not contain expected version 2.1.0"
+
+    - name: Slurp health_check.json
+      ansible.builtin.slurp:
+        src: /var/lib/redis/health_check.json
+      register: profile_redis_cluster_case2_health_slurp
+
+    - name: Assert health_check.json contains valid JSON
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_health_slurp['content'] | b64decode | from_json is defined
+        fail_msg: "health_check.json does not contain valid JSON"
+
+    - name: Slurp redis.conf
+      ansible.builtin.slurp:
+        src: /etc/redis/redis.conf
+      register: profile_redis_cluster_case2_redis_conf_slurp
+
+    - name: Assert redis.conf contains expected port
+      ansible.builtin.assert:
+        that:
+          - "'port 6379' in (profile_redis_cluster_case2_redis_conf_slurp['content'] | b64decode)"
+        fail_msg: "redis.conf does not contain expected port 6379"
+
+    - name: Assert redis.conf contains expected bind address
+      ansible.builtin.assert:
+        that:
+          - "'bind 0.0.0.0' in (profile_redis_cluster_case2_redis_conf_slurp['content'] | b64decode)"
+        fail_msg: "redis.conf does not contain expected bind address"
+
+    - name: Assert redis.conf contains maxmemory policy
+      ansible.builtin.assert:
+        that:
+          - "'allkeys-lru' in (profile_redis_cluster_case2_redis_conf_slurp['content'] | b64decode)"
+        fail_msg: "redis.conf does not contain expected maxmemory-policy allkeys-lru"
+
+    - name: Assert redis.conf has AOF persistence enabled
+      ansible.builtin.assert:
+        that:
+          - "'appendonly yes' in (profile_redis_cluster_case2_redis_conf_slurp['content'] | b64decode)"
+        fail_msg: "redis.conf does not have appendonly enabled"
+
+# ---------------------------------------------------------------------------
+# Play 3: Verify Redis service and network
+# ---------------------------------------------------------------------------
+- name: Verify Redis service and network
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Redis service is active and enabled
+      ansible.builtin.assert:
+        that:
+          - "'redis.service' in ansible_facts['services'] or 'redis' in ansible_facts['services']"
+        fail_msg: "Redis service not found in service facts"
+
+    - name: Assert Redis service is running
+      ansible.builtin.assert:
+        that: >-
+          (ansible_facts['services']['redis.service'] is defined and
+          ansible_facts['services']['redis.service']['state'] == 'running') or
+          (ansible_facts['services']['redis'] is defined and
+          ansible_facts['services']['redis']['state'] == 'running')
+        fail_msg: "Redis service is not in running state"
+
+    - name: Assert Redis is listening on port 6379
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 6379
+        timeout: 10
+        state: started
+        msg: "Redis is not listening on port 6379"
+
+# ---------------------------------------------------------------------------
+# Play 4: Verify pre-requisite binary and scheduler registration
+# ---------------------------------------------------------------------------
+- name: Verify schedulerctl binary and scheduler registration
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Stat schedulerctl binary # noqa: L033 - re-registers profile_redis_cluster_case2_schedulerctl_stat independently in a separate play; intentional per-play scope
+      ansible.builtin.stat:
+        path: /usr/local/bin/schedulerctl
+      register: profile_redis_cluster_case2_schedulerctl_stat
+
+    - name: Assert schedulerctl binary exists and is executable
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_schedulerctl_stat['stat']['exists']
+          - profile_redis_cluster_case2_schedulerctl_stat['stat']['executable']
+        fail_msg: "schedulerctl binary is missing or not executable"
+
+    - name: Check scheduler registration status for redis-node
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/schedulerctl
+          - status
+          - redis-node
+      changed_when: false
+      register: profile_redis_cluster_case2_scheduler_verify
+      failed_when: profile_redis_cluster_case2_scheduler_verify['rc'] not in [0, 1]
+
+    - name: Assert redis-node is registered with the scheduler
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_scheduler_verify['rc'] == 0
+        fail_msg: "redis-node is not registered with the Enterprise Scheduler"

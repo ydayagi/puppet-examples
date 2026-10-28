@@ -1,0 +1,43 @@
+---
+# Entry point for profile_redis_cluster_case1 role.
+# Mirrors the execution order of manifests/init.pp:
+#   1. Validate AAP credentials
+#   2. Determine redis_role fact (primary vs replica)
+#   3. Build cluster peer list from inventory (replaces PuppetDB query)
+#   4. Run health check against the configured endpoint (replaces myFunction1 + myType1)
+#   5. Install and configure Redis
+
+- name: Validate credential variables
+  ansible.builtin.include_tasks: validate_credentials.yml
+
+- name: Determine Redis node role (primary or replica)
+  ansible.builtin.include_tasks: facts.yml
+
+- name: Build Redis cluster peer list from inventory group
+  ansible.builtin.set_fact:
+    redis_nodes: >-
+      {{ groups[profile_redis_cluster_case1_cluster_group]
+        | map('extract', hostvars, 'inventory_hostname')
+        | list }}
+  when: profile_redis_cluster_case1_cluster_group in groups
+
+- name: Fetch health check endpoint (equivalent of myFunction1 compile-time check)
+  ansible.builtin.uri:
+    url: "{{ profile_redis_cluster_case1_health_check_url }}"
+    method: GET
+    return_content: true
+  register: profile_redis_cluster_case1_health_check
+  ignore_errors: true
+
+- name: Assert health check endpoint is reachable (equivalent of myType1 runtime check)
+  ansible.builtin.uri:
+    url: "{{ profile_redis_cluster_case1_health_check_url }}"
+    method: GET
+    status_code:
+      - 200
+      - 201
+      - 202
+      - 204
+
+- name: Install and configure Redis
+  ansible.builtin.include_tasks: install.yml

@@ -14,3 +14,17 @@ the same name, which made earlier runs analyze the stale site copy.
 
 Both copies contain only source files — no migration plans or generated
 Ansible output.
+
+## Retest results (2026-10-28)
+
+- **case2** reproduced the original run: all usages in the plan walkthrough and
+  the role; `myDeploy1` composed from version-check/download/extract tasks;
+  the secret components mapped by invention (schedulerctl command wrapping,
+  AAP credential) instead of being flagged.
+- **case1** did **not** reproduce the original drop: with the unmodified
+  converter, this run recorded the `myFunction1` call and `myType1`
+  declaration in the plan and converted both to `ansible.builtin.uri` tasks.
+  The original failure was nondeterministic — the schema on `main` has no
+  fields to carry type/function references, so whether the usages survive
+  depends on the LLM volunteering them in free text. The per-kind fix removes
+  that dependence; it does not change what the LLM is capable of.

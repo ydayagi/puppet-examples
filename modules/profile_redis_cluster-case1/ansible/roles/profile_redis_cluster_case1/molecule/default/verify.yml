@@ -1,0 +1,123 @@
+---
+# Play 1: Service, port, and HTTP health-check verification
+- name: Verify Redis service and connectivity
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Redis service is active and enabled
+      ansible.builtin.assert:
+        that:
+          - "'redis.service' in ansible_facts['services']"
+          - "ansible_facts['services']['redis.service']['state'] == 'running'"
+          - "ansible_facts['services']['redis.service']['status'] == 'enabled'"
+        fail_msg: "Redis service is not running or not enabled"
+
+    - name: Assert Redis is listening on port 6379
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 6379
+        state: started
+        timeout: 10
+
+    - name: Check health check endpoint returns HTTP 2xx
+      ansible.builtin.uri:
+        url: http://localhost:8080/health
+        method: GET
+        status_code:
+          - 200
+          - 201
+          - 202
+          - 204
+
+# Play 2: Filesystem verification
+- name: Verify Redis filesystem state
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Stat Redis log directory and config file
+      ansible.builtin.stat:
+        path: "{{ item_path }}" # noqa: R114 - paths are fixed literals from role-defined variables, not user input
+      loop:
+        - /var/log/redis
+        - /etc/redis/redis.conf
+      loop_control:
+        loop_var: item_path
+      register: redis_path_stats
+
+    - name: Assert Redis log directory exists and is a directory
+      ansible.builtin.assert:
+        that:
+          - "redis_path_stats['results'][0]['stat']['exists']"
+          - "redis_path_stats['results'][0]['stat']['isdir']"
+        fail_msg: "Redis log directory /var/log/redis does not exist or is not a directory"
+
+    - name: Assert Redis log directory has correct ownership and mode
+      ansible.builtin.assert:
+        that:
+          - "redis_path_stats['results'][0]['stat']['pw_name'] == 'redis'"
+          - "redis_path_stats['results'][0]['stat']['gr_name'] == 'redis'"
+          - "redis_path_stats['results'][0]['stat']['mode'] == '0755'"
+        fail_msg: "Redis log directory has incorrect ownership or permissions"
+
+    - name: Assert Redis configuration file exists
+      ansible.builtin.assert:
+        that:
+          - "redis_path_stats['results'][1]['stat']['exists']"
+          - "redis_path_stats['results'][1]['stat']['size'] > 0"
+        fail_msg: "Redis configuration file /etc/redis/redis.conf does not exist or is empty"
+
+    - name: Slurp Redis configuration file
+      ansible.builtin.slurp:
+        src: /etc/redis/redis.conf
+      register: redis_conf_content
+
+    - name: Assert Redis configuration contains expected settings
+      ansible.builtin.assert:
+        that:
+          - "'bind 0.0.0.0' in (redis_conf_content['content'] | b64decode)"
+          - "'port 6379' in (redis_conf_content['content'] | b64decode)"
+          - "'maxmemory 2048mb' in (redis_conf_content['content'] | b64decode)"
+          - "'maxmemory-policy allkeys-lru' in (redis_conf_content['content'] | b64decode)"
+          - "'appendonly yes' in (redis_conf_content['content'] | b64decode)"
+          - "'appendfsync everysec' in (redis_conf_content['content'] | b64decode)"
+        fail_msg: "Redis configuration file is missing one or more expected settings"
+
+# Play 3: Redis node role fact verification
+- name: Verify Redis node role determination
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Stat replica config file
+      ansible.builtin.stat:
+        path: /etc/redis/conf.d/replica.conf
+      register: replica_conf_stat
+
+    - name: Read replica config contents when file exists # noqa: L039 - replica_conf_stat is registered by the prior stat task
+      ansible.builtin.slurp:
+        src: /etc/redis/conf.d/replica.conf
+      register: replica_conf_content
+      when: replica_conf_stat['stat']['exists']
+
+    - name: Derive expected redis_role value # noqa: L039 - replica_conf_stat and replica_conf_content are registered by prior tasks
+      ansible.builtin.set_fact:
+        expected_redis_role: >-
+          {{ 'replica'
+            if (replica_conf_stat['stat']['exists'] and
+                'replicaof' in (replica_conf_content['content'] | b64decode))
+            else 'primary' }}
+      when: replica_conf_stat['stat']['exists']
+
+    - name: Set expected redis_role to primary when replica config is absent # noqa: L039 - replica_conf_stat is registered by the prior stat task
+      ansible.builtin.set_fact:
+        expected_redis_role: primary
+      when: not replica_conf_stat['stat']['exists']
+
+    - name: Assert redis_role fact is set correctly
+      ansible.builtin.assert:
+        that:
+          - "redis_role is defined"
+          - "redis_role == expected_redis_role"
+        fail_msg: "redis_role fact is not set to the expected value"
