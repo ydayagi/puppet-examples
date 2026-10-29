@@ -1,0 +1,67 @@
+---
+# Equivalent of myDeploy1 'myapp' custom type + myDeployProvider.
+# Idempotently deploys the myapp artifact to /opt/myapp, tracking version via version.txt.
+
+- name: Validate myapp deployment parameters
+  ansible.builtin.assert:
+    that:
+      - profile_redis_cluster_case2_myapp_version | length > 0
+      - profile_redis_cluster_case2_myapp_url is match('^https?://')
+    fail_msg: >-
+      myapp version must be non-empty and URL must start with http:// or https://.
+      Got version='{{ profile_redis_cluster_case2_myapp_version }}'
+      url='{{ profile_redis_cluster_case2_myapp_url }}'
+
+- name: Check installed myapp version
+  ansible.builtin.stat:
+    path: "{{ profile_redis_cluster_case2_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+  register: _myapp_version_stat
+
+- name: Read installed myapp version
+  ansible.builtin.slurp:
+    src: "{{ profile_redis_cluster_case2_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+  when: _myapp_version_stat.stat.exists # noqa: L039 - registered by prior task in this file
+  register: _myapp_installed_version
+
+- name: Set myapp needs update fact
+  ansible.builtin.set_fact:
+    _myapp_needs_update: >-
+      {{
+        not _myapp_version_stat.stat.exists or
+        (_myapp_installed_version.content | default('') | b64decode | trim) != profile_redis_cluster_case2_myapp_version
+      }} # noqa: L039 - _myapp_installed_version and _myapp_version_stat registered by prior tasks in this file
+
+- name: Create myapp install directory
+  ansible.builtin.file:
+    path: "{{ profile_redis_cluster_case2_myapp_install_dir }}" # noqa: R114 - path from role-defined variable, not user input
+    state: directory
+    mode: "0755"
+  when: _myapp_needs_update | bool # noqa: L039 - _myapp_needs_update set by prior set_fact task
+
+- name: Download myapp artifact
+  ansible.builtin.get_url:
+    url: "{{ profile_redis_cluster_case2_myapp_url }}"
+    dest: "{{ profile_redis_cluster_case2_myapp_install_dir }}/artifact.tar.gz" # noqa: R114 - path from role-defined variable, not user input
+    mode: "0644"
+  when: _myapp_needs_update | bool # noqa: L039 - _myapp_needs_update set by prior set_fact task
+  # noqa: R104 - URL scheme validated by assert above; variable may be http:// for internal mirrors
+  # noqa: R106 - URL is a role-defined variable validated by assert, not arbitrary user input
+
+- name: Extract myapp artifact
+  ansible.builtin.unarchive:
+    src: "{{ profile_redis_cluster_case2_myapp_install_dir }}/artifact.tar.gz" # noqa: R114 - path from role-defined variable, not user input
+    dest: "{{ profile_redis_cluster_case2_myapp_install_dir }}" # noqa: R114 - path from role-defined variable, not user input
+    remote_src: true
+    mode: "0755"
+  when: _myapp_needs_update | bool # noqa: L039 - _myapp_needs_update set by prior set_fact task
+  # noqa: R104 - src is a local path after download; unarchive flagged due to prior get_url association
+  # noqa: R106 - src is a local path, not a parameterized remote URL
+
+- name: Write myapp version tracking file
+  ansible.builtin.copy:
+    content: "{{ profile_redis_cluster_case2_myapp_version }}"
+    dest: "{{ profile_redis_cluster_case2_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+    mode: "0644"
+    backup: true
+  when: _myapp_needs_update | bool # noqa: L039 - _myapp_needs_update set by prior set_fact task
+  # noqa: L071 - content is a plain variable expansion, not a Jinja template; copy is correct here

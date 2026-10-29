@@ -1,0 +1,26 @@
+---
+# Manage !key=value entries in the proprietary CompanyApp settings file
+# Replaces: myFormatType1 'app-mode' and myFormatType1 'health-port'
+# Uses the custom Ansible module: company_app_conf (library/company_app_conf.py)
+
+- name: Ensure /etc/company directory exists
+  ansible.builtin.file:
+    path: /etc/company
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Set CompanyApp app-mode entry
+  company_app_conf: # noqa: L026 - custom library module; no FQCN available
+    file: "{{ redis_cluster_company_app_conf }}" # noqa: R114 - path from role-defined variable, not user input
+    entry: app-mode
+    value: cluster
+    state: present
+
+- name: Set CompanyApp health-port entry
+  company_app_conf: # noqa: L026 - custom library module; no FQCN available
+    file: "{{ redis_cluster_company_app_conf }}" # noqa: R114 - path from role-defined variable, not user input
+    entry: health-port
+    value: "8080"
+    state: present

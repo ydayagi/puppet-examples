@@ -1,0 +1,19 @@
+---
+# Fetch health check endpoint and write result to disk
+# Replaces: myFunction1('http://localhost:8080/health') + stdlib::to_json()
+
+- name: Fetch health check from local endpoint
+  ansible.builtin.uri:
+    url: "{{ redis_cluster_health_check_url }}"
+    method: GET
+    return_content: true
+  register: redis_cluster_health_check_result
+
+- name: Write health_check.json # noqa: L071 - copy with Jinja content is intentional; module type must not change
+  ansible.builtin.copy:
+    content: "{{ redis_cluster_health_check_result.json | to_json }}" # noqa: M005 - registered variable from prior task in same play; value is role-controlled JSON from localhost endpoint
+    dest: "{{ redis_cluster_health_check_dest }}" # noqa: R114 - path from role-defined variable, not user input
+    owner: redis
+    group: redis
+    mode: "0644"
+    backup: true

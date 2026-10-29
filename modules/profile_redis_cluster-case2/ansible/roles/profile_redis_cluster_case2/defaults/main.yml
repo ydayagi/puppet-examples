@@ -1,27 +1,23 @@
 ---
-# Redis cluster node configuration
+# Redis cluster node configuration defaults
+# NOTE: redis_password is injected at runtime by AAP credential type — do NOT set a default here.
+# The variable 'redis_password' is a secret and must be vaulted before any deployment.
 profile_redis_cluster_case2_redis_port: 6379
 profile_redis_cluster_case2_maxmemory_mb: 2048
 profile_redis_cluster_case2_maxmemory_policy: allkeys-lru
-# Redis persistence settings
+profile_redis_cluster_case2_redis_bind: 0.0.0.0
 profile_redis_cluster_case2_appendonly: true
 profile_redis_cluster_case2_appendfsync: everysec
-# Redis bind address
-profile_redis_cluster_case2_bind: 0.0.0.0
-# Redis package management
-profile_redis_cluster_case2_manage_package: true
-# myapp artifact deployment
+# myapp deployment settings
 profile_redis_cluster_case2_myapp_version: 2.1.0
-profile_redis_cluster_case2_myapp_url: https://artifacts.internal/myapp-2.1.0.tar.gz
+profile_redis_cluster_case2_myapp_url: http://artifacts.internal/myapp-2.1.0.tar.gz
 profile_redis_cluster_case2_myapp_install_dir: /opt/myapp
-# Enterprise Scheduler registration
-profile_redis_cluster_case2_scheduler_schedule: daily
-profile_redis_cluster_case2_scheduler_name: redis-node
-profile_redis_cluster_case2_schedulerctl_bin: /usr/local/bin/schedulerctl
-# Health check endpoint
+# Health check settings
 profile_redis_cluster_case2_health_check_url: http://localhost:8080/health
-profile_redis_cluster_case2_health_check_file: /var/lib/redis/health_check.json
+profile_redis_cluster_case2_health_check_dest: /var/lib/redis/health_check.json
 # Redis log directory
 profile_redis_cluster_case2_log_dir: /var/log/redis
+# Redis replica config path (used for role detection)
+profile_redis_cluster_case2_replica_conf: /etc/redis/conf.d/replica.conf
 # Secure logging toggle — set to false only for debugging
 profile_redis_cluster_case2_secure_logging: true

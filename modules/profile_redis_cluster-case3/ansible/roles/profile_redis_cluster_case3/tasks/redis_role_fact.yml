@@ -1,0 +1,26 @@
+---
+# Determine Redis role (primary vs replica) inline
+# Replaces: lib/facter/redis_role.rb custom fact
+# Only runs on Linux (mirrors the Puppet 'confine kernel: Linux' constraint)
+
+- name: Check replica.conf existence
+  ansible.builtin.stat:
+    path: /etc/redis/conf.d/replica.conf
+  when: ansible_facts['kernel'] is defined
+  register: redis_cluster_replica_conf_stat
+
+- name: Read replica.conf if present
+  ansible.builtin.slurp:
+    src: /etc/redis/conf.d/replica.conf
+  when:
+    - ansible_facts['kernel'] is defined
+    - redis_cluster_replica_conf_stat.stat.exists # noqa: L039 - variable registered by prior task in same file
+  register: redis_cluster_replica_conf_content
+
+- name: Set redis_role fact
+  ansible.builtin.set_fact:
+    redis_role: >-
+      {{ 'replica' if (redis_cluster_replica_conf_stat.stat.exists and
+      'replicaof' in (redis_cluster_replica_conf_content.content | b64decode))
+      else 'primary' }}
+  when: ansible_facts['kernel'] is defined # noqa: L039 - redis_cluster_replica_conf_content and redis_cluster_replica_conf_stat registered by prior tasks in same file

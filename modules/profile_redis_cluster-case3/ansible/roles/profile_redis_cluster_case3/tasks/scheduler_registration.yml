@@ -1,0 +1,35 @@
+---
+# ⚠️  NOT SAFELY CONVERTIBLE — DEVELOPER ACTION REQUIRED
+#
+# This file is a stub for the mySecretType1 'redis-node' resource from manifests/init.pp.
+# The original Puppet resource used the mySecretProvider1 provider which wraps the
+# proprietary CLI tool /usr/local/bin/schedulerctl with subcommands:
+#   - query:      /usr/local/bin/schedulerctl query redis-node
+#   - register:   /usr/local/bin/schedulerctl register redis-node --schedule daily
+#   - unregister: /usr/local/bin/schedulerctl unregister redis-node
+#
+# The semantics of these subcommands — expected output format, exit codes, side effects,
+# authentication mechanism, and the Enterprise Scheduler platform's API — are fully opaque.
+#
+# REQUIRED DEVELOPER ACTIONS before implementing this task:
+#   1. Obtain documentation or source access for schedulerctl and the Enterprise Scheduler
+#   2. Determine whether a REST API or Ansible collection exists for the scheduler
+#   3. Confirm the exit codes returned by 'schedulerctl query' (0 = registered? non-zero = not?)
+#   4. Confirm the output format of 'schedulerctl query' to build an idempotency check
+#   5. If only the CLI is available, implement an idempotent ansible.builtin.command sequence:
+#        - Run 'schedulerctl query redis-node' to check current state
+#        - Run 'schedulerctl register redis-node --schedule daily' only if not already registered
+#   6. Consider whether a full custom Ansible module is needed for robust idempotency
+#
+# The AAP credential variable {{ redis_service_token }} may be relevant for authentication.
+# It is injected at runtime by the AAP credential type.
+#
+# PLACEHOLDER TASK — remove this and implement the real logic once schedulerctl is understood:
+
+- name: Enterprise Scheduler registration — NOT IMPLEMENTED (developer action required)
+  ansible.builtin.debug:
+    msg: >-
+      STUB: mySecretType1 'redis-node' (schedule=daily) has not been converted.
+      The schedulerctl CLI semantics are opaque. See comments in this file for
+      required developer actions before implementing this task.
+    verbosity: 2

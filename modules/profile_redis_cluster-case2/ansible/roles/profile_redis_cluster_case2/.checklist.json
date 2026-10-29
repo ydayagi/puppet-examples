@@ -27,58 +27,98 @@
     },
     {
       "category": "structure",
-      "source_path": "N/A",
+      "source_path": "metadata.json",
       "target_path": "ansible/roles/profile_redis_cluster_case2/meta/main.yml",
       "status": "complete",
-      "description": "Role metadata file",
-      "notes": "Created standard meta/main.yml"
+      "description": "Role metadata (author, license, platforms, dependencies)",
+      "notes": "Updated meta/main.yml with accurate metadata from metadata.json: author, description, platforms (EL 8/9, Ubuntu jammy/noble), and relevant galaxy_tags."
     },
     {
       "category": "structure",
-      "source_path": "N/A",
-      "target_path": "ansible/roles/profile_redis_cluster_case2/handlers/main.yml",
-      "status": "complete",
-      "description": "Handlers file (Redis service restart handler)",
-      "notes": "Created handler for Redis service restart, triggered by redis.conf template changes."
-    },
-    {
-      "category": "attributes",
       "source_path": "manifests/init.pp",
       "target_path": "ansible/roles/profile_redis_cluster_case2/defaults/main.yml",
       "status": "complete",
-      "description": "Convert class parameter defaults from init.pp to Ansible defaults: redis_port (6379), redis_password (CHANGEME \u2192 vault-encrypted), maxmemory_mb (2048), maxmemory_policy (allkeys-lru)",
-      "notes": "Converted Puppet class parameters to Ansible defaults. redis_password and redis_service_token are AAP credential variables, not in defaults."
+      "description": "Role default variables: redis_port, redis_password (vault), maxmemory_mb, maxmemory_policy \u2014 all from manifest parameter defaults in init.pp",
+      "notes": "Converted class parameter defaults to Ansible role defaults. redis_password is injected by AAP credential type at runtime."
     },
     {
       "category": "structure",
       "source_path": "manifests/init.pp",
       "target_path": "ansible/roles/profile_redis_cluster_case2/meta/argument_specs.yml",
       "status": "complete",
-      "description": "Role argument specs for fail-fast parameter validation (generate after defaults/main.yml is written)",
-      "notes": "Generated argument_specs.yml from defaults/main.yml plus AAP credential variables (redis_password, redis_service_token) marked as required with no default."
+      "description": "Role argument specs for fail-fast parameter validation \u2014 generate after defaults/main.yml is written",
+      "notes": "Generated argument_specs.yml from defaults/main.yml plus AAP credential variables."
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/handlers/main.yml",
+      "status": "complete",
+      "description": "Handlers for Redis service restart/reload triggered by config changes",
+      "notes": "Created handlers with redis restart handler."
     },
     {
       "category": "recipes",
       "source_path": "manifests/init.pp",
       "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/main.yml",
       "status": "complete",
-      "description": "Convert init.pp to main tasks: resolve redis_role fact (stat+slurp+set_fact), fetch health check via uri module, write health_check.json, deploy myapp artifact (get_url+unarchive+copy version.txt), fetch service token (custom lookup), register node in Enterprise Scheduler (schedulerctl), include install tasks. PuppetDB cluster discovery \u2192 use dynamic inventory group redis_cluster.",
-      "notes": "Fixed Cat4 ordering: moved include_tasks install.yml to run immediately after credential validation, before any task using redis user/group or /var/lib/redis. Fixed Cat2: added stat+assert guard for schedulerctl binary."
+      "description": "Main task entry point: orchestrates Redis install, myapp deployment, health-check snapshot, schedulerctl registration (\u26a0\ufe0f NOT SAFELY CONVERTIBLE), and secret fetch (\u26a0\ufe0f NOT SAFELY CONVERTIBLE). Includes peer-discovery via inventory group as PuppetDB replacement.",
+      "notes": "Converted init.pp to main.yml orchestrating all sub-task files. PuppetDB peer discovery documented as inventory group pattern."
     },
     {
       "category": "recipes",
       "source_path": "manifests/install.pp",
       "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/install.yml",
       "status": "complete",
-      "description": "Convert install.pp: install redis package, write /etc/redis/redis.conf (bind, port, requirepass, maxmemory, appendonly, appendfsync), manage redis service, create /var/log/redis directory (owner redis, group redis, mode 0755)",
-      "notes": "Converted Puppet redis class include and file resource to Ansible tasks. Created redis.conf.j2 template. redis_password uses AAP credential variable with no_log."
+      "description": "Install tasks: configure Redis via ansible.builtin modules (bind 0.0.0.0, port 6379, requirepass, maxmemory 2048mb, allkeys-lru, appendonly everysec), ensure /var/log/redis directory exists (owner redis:redis, mode 0755)",
+      "notes": "Cat-4 ordering fixed: log directory creation moved before service start. redis user/group created by package install (task 1) so ownership on log dir task is safe."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/puppet/provider/myDeploy1/myDeployProvider.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/deploy_myapp.yml",
+      "status": "complete",
+      "description": "myapp deployment tasks: stat /opt/myapp/version.txt for idempotency, assert URL/version, ansible.builtin.file (directory), get_url to download artifact, unarchive (remote_src), copy version.txt with content '2.1.0'",
+      "notes": "Cat-1 verified: stat on non-existent path is safe (returns exists:false). slurp is guarded. Directory created before download/extract when _myapp_needs_update=true. No fix needed."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/puppet/functions/myFunction1.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/health_check.yml",
+      "status": "complete",
+      "description": "Health-check snapshot tasks: ansible.builtin.uri GET http://localhost:8080/health, ansible.builtin.copy content={{ result.json | to_nice_json }} \u2192 /var/lib/redis/health_check.json (owner redis:redis, mode 0644)",
+      "notes": "Cat-2 verified: /var/lib/redis/ is created by redis package which is installed in install.yml before health_check.yml runs. No fix needed."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/puppet/provider/mySecretType1/mySecretProvider1.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/scheduler_registration.yml",
+      "status": "complete",
+      "description": "\u26a0\ufe0f NOT SAFELY CONVERTIBLE \u2014 schedulerctl registration (query/register --schedule daily redis-node). Developer must obtain schedulerctl CLI spec (exit codes, output format) before implementing ansible.builtin.command tasks with changed_when/failed_when guards.",
+      "notes": "NOT SAFELY CONVERTIBLE \u2014 placeholder with detailed developer instructions. schedulerctl CLI is proprietary and undocumented."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/puppet/functions/mySecretFunction1.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/fetch_secret.yml",
+      "status": "complete",
+      "description": "\u26a0\ufe0f NOT SAFELY CONVERTIBLE \u2014 fetches redis_service_token from CompanyInternal::SecretStore (proprietary, undocumented backend). Developer must identify the secrets backend (Vault, AWS, Azure, etc.) before selecting an Ansible lookup plugin or module.",
+      "notes": "NOT SAFELY CONVERTIBLE \u2014 placeholder with detailed developer instructions. CompanyInternal::SecretStore backend is unknown. AAP credential injection already provides redis_service_token."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/facter/redis_role.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/detect_redis_role.yml",
+      "status": "complete",
+      "description": "Redis role fact equivalent: stat /etc/redis/conf.d/replica.conf, slurp/shell to check for 'replicaof' string, register redis_role host variable (primary|replica). Replaces lib/facter/redis_role.rb custom fact.",
+      "notes": "Converted custom Facter fact to Ansible tasks using stat + slurp + set_fact pattern."
     },
     {
       "category": "molecule",
       "source_path": "N/A",
       "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/molecule.yml",
       "status": "complete",
-      "description": "Molecule scenario configuration \u2014 delegated driver, local connection",
+      "description": "Molecule scenario configuration \u2014 delegated driver, local connection (not docker/podman)",
       "notes": "Created by MoleculeAgent (deterministic scaffold)"
     },
     {
@@ -86,23 +126,23 @@
       "source_path": "N/A",
       "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/converge.yml",
       "status": "complete",
-      "description": "Molecule converge playbook \u2014 runs the role via ansible.builtin.include_role",
-      "notes": "Generated converge.yml with single include_role task for profile_redis_cluster_case2. Includes AAP credential vars (redis_password, redis_service_token) as molecule test values."
+      "description": "Molecule converge playbook \u2014 runs the role via a single ansible.builtin.include_role task",
+      "notes": "Includes role via ansible.builtin.include_role with placeholder credential vars (redis_password, secret_store_url, secret_store_token, redis_service_token) to satisfy validate_credentials.yml. No faked filesystem state."
     },
     {
       "category": "molecule",
       "source_path": "N/A",
       "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/verify.yml",
       "status": "complete",
-      "description": "Molecule verify playbook \u2014 checks /var/lib/redis/health_check.json (exists, owner redis, mode 0644, valid JSON), /var/log/redis (directory, owner redis, mode 0755), /opt/myapp/version.txt (contains 2.1.0), /opt/myapp/ (exists), schedulerctl status redis-node, redis-cli ping on port 6379",
-      "notes": "Generated verify.yml split into 4 plays: (1) filesystem artifact stat/assert checks, (2) file content slurp/assert checks (version.txt, health_check.json, redis.conf), (3) Redis service facts and port 6379 wait_for, (4) schedulerctl binary and scheduler registration checks."
+      "description": "Molecule verify playbook \u2014 checks /var/lib/redis/health_check.json (exists, valid JSON, owner redis:redis, mode 0644), /opt/myapp/version.txt (contains 2.1.0), /opt/myapp/ (directory exists), /var/log/redis (exists, owner redis:redis, mode 0755), Redis PING response, health endpoint reachability",
+      "notes": "Two-play verify: Play 1 checks filesystem (redis.conf, /var/log/redis ownership/mode, /opt/myapp dir+version.txt content, health_check.json ownership/mode/valid-JSON). Play 2 checks Redis service running+enabled, port 6379 open, and key redis.conf directives (bind, port, maxmemory, maxmemory-policy, appendonly, appendfsync)."
     },
     {
       "category": "molecule",
       "source_path": "N/A",
       "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/create.yml",
       "status": "complete",
-      "description": "Molecule no-op create playbook (delegated driver)",
+      "description": "Molecule no-op instance create stub (delegated driver)",
       "notes": "Created by MoleculeAgent (deterministic scaffold)"
     },
     {
@@ -110,8 +150,16 @@
       "source_path": "N/A",
       "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/destroy.yml",
       "status": "complete",
-      "description": "Molecule no-op destroy playbook (delegated driver)",
+      "description": "Molecule no-op instance destroy stub (delegated driver)",
       "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/meta/main.yml",
+      "status": "complete",
+      "description": "Created standard meta/main.yml",
+      "notes": ""
     }
   ]
 }

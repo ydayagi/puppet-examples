@@ -1,0 +1,63 @@
+---
+# ============================================================================
+# ⚠️  NOT SAFELY CONVERTIBLE — DEVELOPER ACTION REQUIRED
+# ============================================================================
+# Source: lib/puppet/provider/mySecretType1/mySecretProvider1.rb
+#         lib/puppet/type/mySecretType1.rb
+#
+# This task file is a PLACEHOLDER. The original Puppet resource wraps the
+# proprietary Enterprise Scheduler CLI binary at /usr/local/bin/schedulerctl.
+#
+# The following subcommands are used:
+#   - schedulerctl query redis-node          (idempotency check)
+#   - schedulerctl register --schedule daily redis-node  (create)
+#   - schedulerctl unregister redis-node     (destroy)
+#
+# WHY IT CANNOT BE SAFELY CONVERTED:
+#   - The subcommands, their exit codes, stdout/stderr format, and side effects
+#     are entirely undocumented in the source repository.
+#   - There is no known Ansible module or Galaxy collection for this platform.
+#   - Without knowing the exit code semantics of `schedulerctl query`, it is
+#     impossible to write correct changed_when / failed_when guards.
+#
+# REQUIRED DEVELOPER ACTIONS BEFORE IMPLEMENTING:
+#   1. Obtain the schedulerctl CLI documentation or binary specification.
+#   2. Determine the exit code for "already registered" vs "not registered"
+#      from `schedulerctl query`.
+#   3. Determine whether `schedulerctl register` is idempotent or errors if
+#      the node is already registered.
+#   4. Implement using ansible.builtin.command tasks with appropriate
+#      changed_when / failed_when guards, OR write a custom Ansible module
+#      under library/schedulerctl.py if the CLI interface is complex.
+#
+# EXAMPLE SKELETON (fill in correct exit codes / output patterns):
+#
+#   - name: Check if redis-node is registered in Enterprise Scheduler
+#     ansible.builtin.command:
+#       argv:
+#         - /usr/local/bin/schedulerctl
+#         - query
+#         - redis-node
+#     register: _scheduler_query
+#     changed_when: false
+#     failed_when: false   # REPLACE with correct failure condition
+#
+#   - name: Register redis-node with Enterprise Scheduler
+#     ansible.builtin.command:
+#       argv:
+#         - /usr/local/bin/schedulerctl
+#         - register
+#         - --schedule
+#         - daily
+#         - redis-node
+#     when: _scheduler_query.rc != 0   # REPLACE with correct condition
+#     changed_when: true               # REPLACE with correct condition
+# ============================================================================
+
+- name: Enterprise Scheduler registration — NOT SAFELY CONVERTIBLE
+  ansible.builtin.fail:
+    msg: >-
+      The scheduler_registration task has not been implemented.
+      The proprietary schedulerctl CLI ({{ '/usr/local/bin/schedulerctl' }}) requires
+      developer investigation before an Ansible equivalent can be written.
+      See the comments in tasks/scheduler_registration.yml for required actions.

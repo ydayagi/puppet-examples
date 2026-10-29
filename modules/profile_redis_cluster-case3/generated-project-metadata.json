@@ -1,0 +1,8 @@
+[
+  {
+    "name": "profile_redis_cluster_case3",
+    "path": ".",
+    "description": "Provisions a Redis cluster node on RedHat 8/9 and Ubuntu 22.04/24.04, including Redis installation and configuration, PuppetDB-driven peer discovery, versioned application artifact deployment, proprietary secrets retrieval, enterprise scheduler registration, and management of a custom config-file format.",
+    "technology": "Puppet"
+  }
+]

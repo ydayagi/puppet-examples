@@ -1,14 +1,15 @@
 ---
-# install.yml — Install Redis package, configure, and manage service
+# Equivalent of profile_redis_cluster_case2::install (manifests/install.pp).
+# Installs and configures Redis, and ensures the log directory exists.
 
 - name: Install Redis package
   ansible.builtin.package:
     name: redis
     state: present
 
-- name: Ensure Redis configuration directory exists
+- name: Ensure Redis log directory exists
   ansible.builtin.file:
-    path: /etc/redis
+    path: "{{ profile_redis_cluster_case2_log_dir }}" # noqa: R114 - path from role-defined variable, not user input
     state: directory
     owner: redis
     group: redis
@@ -22,16 +23,8 @@
     group: redis
     mode: "0640"
     backup: true
-  notify: Restart Redis
+  notify: Restart redis
   no_log: "{{ profile_redis_cluster_case2_secure_logging }}"
-
-- name: Ensure Redis log directory exists
-  ansible.builtin.file:
-    path: "{{ profile_redis_cluster_case2_log_dir }}" # noqa: R114 - path from role defaults, not user input
-    state: directory
-    owner: redis
-    group: redis
-    mode: "0755"
 
 - name: Ensure Redis service is started and enabled
   ansible.builtin.service:

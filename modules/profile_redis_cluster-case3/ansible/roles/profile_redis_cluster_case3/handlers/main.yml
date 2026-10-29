@@ -1,0 +1,5 @@
+---
+- name: Restart redis
+  ansible.builtin.service:
+    name: "{{ redis_cluster_service_name }}"
+    state: restarted

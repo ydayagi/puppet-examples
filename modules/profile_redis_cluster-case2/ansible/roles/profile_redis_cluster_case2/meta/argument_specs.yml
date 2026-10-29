@@ -1,112 +1,110 @@
 ---
 argument_specs:
   main:
-    short_description: Deploy and configure a Redis cluster node with artifact deployment and scheduler registration
+    short_description: Install and configure a Redis cluster node with companion application deployment
     description:
-      - Installs and configures a Redis instance as a cluster node (primary or replica).
-      - Deploys the myapp application artifact from a remote URL.
-      - Fetches a health check from a local HTTP endpoint and writes the result to disk.
-      - Registers the node with an Enterprise Scheduler using a service token.
-      - Determines the Redis node role (primary or replica) by inspecting the replica configuration file.
+      - Installs and configures Redis with password authentication, memory limits, and append-only persistence.
+      - Deploys the myapp companion application artifact from an internal artifact server.
+      - Fetches a health check JSON snapshot from a local HTTP endpoint and writes it to disk.
+      - Detects the Redis cluster role (primary or replica) based on replica config file presence.
+      - Includes placeholder tasks for Enterprise Scheduler registration and secret store fetching that require developer investigation before implementation.
     options:
       profile_redis_cluster_case2_redis_port:
         type: int
         required: false
         default: 6379
-        description: TCP port that the Redis instance listens on.
+        description: TCP port Redis listens on.
       profile_redis_cluster_case2_maxmemory_mb:
         type: int
         required: false
         default: 2048
-        description: Maximum memory limit for Redis in megabytes.
+        description: Maximum memory Redis may use, in megabytes.
       profile_redis_cluster_case2_maxmemory_policy:
         type: str
         required: false
         default: allkeys-lru
-        description: Redis eviction policy applied when the maxmemory limit is reached.
+        description: Redis eviction policy when maxmemory is reached.
+      profile_redis_cluster_case2_redis_bind:
+        type: str
+        required: false
+        default: 0.0.0.0
+        description: IP address Redis binds to. Defaults to all interfaces.
       profile_redis_cluster_case2_appendonly:
         type: bool
         required: false
         default: true
-        description: Whether to enable Redis AOF (Append Only File) persistence.
+        description: Whether to enable Redis append-only persistence mode.
       profile_redis_cluster_case2_appendfsync:
         type: str
         required: false
         default: everysec
         description: >-
-          AOF fsync policy. Valid values are 'always', 'everysec', or 'no'.
-      profile_redis_cluster_case2_bind:
-        type: str
-        required: false
-        default: 0.0.0.0
-        description: IP address that Redis binds to. Use '0.0.0.0' to listen on all interfaces.
-      profile_redis_cluster_case2_manage_package:
-        type: bool
-        required: false
-        default: true
-        description: Whether the role should install the Redis package.
+          Redis appendfsync policy. Valid values are 'always', 'everysec', or 'no'.
       profile_redis_cluster_case2_myapp_version:
         type: str
         required: false
         default: 2.1.0
-        description: Version of the myapp artifact to deploy.
+        description: Version of the myapp companion application to deploy.
       profile_redis_cluster_case2_myapp_url:
         type: str
         required: false
         default: http://artifacts.internal/myapp-2.1.0.tar.gz
-        description: URL from which the myapp artifact tarball is downloaded.
+        description: URL of the myapp artifact tarball to download.
       profile_redis_cluster_case2_myapp_install_dir:
         type: str
         required: false
         default: /opt/myapp
-        description: Filesystem path where the myapp artifact is extracted.
-      profile_redis_cluster_case2_scheduler_schedule:
-        type: str
-        required: false
-        default: daily
-        description: Schedule frequency for the Enterprise Scheduler registration.
-      profile_redis_cluster_case2_scheduler_name:
-        type: str
-        required: false
-        default: redis-node
-        description: Name used to identify this node in the Enterprise Scheduler.
-      profile_redis_cluster_case2_schedulerctl_bin:
-        type: str
-        required: false
-        default: /usr/local/bin/schedulerctl
-        description: >-
-          Path to the schedulerctl binary. This binary must be pre-installed on all target nodes.
+        description: Directory where myapp is installed.
       profile_redis_cluster_case2_health_check_url:
         type: str
         required: false
         default: http://localhost:8080/health
-        description: URL of the local health check endpoint polled during role execution.
-      profile_redis_cluster_case2_health_check_file:
+        description: URL of the local health check HTTP endpoint to query.
+      profile_redis_cluster_case2_health_check_dest:
         type: str
         required: false
         default: /var/lib/redis/health_check.json
-        description: Destination path for the JSON file written from the health check response.
+        description: Filesystem path where the health check JSON snapshot is written.
       profile_redis_cluster_case2_log_dir:
         type: str
         required: false
         default: /var/log/redis
-        description: Directory where Redis writes its log files.
+        description: Redis log directory path.
+      profile_redis_cluster_case2_replica_conf:
+        type: str
+        required: false
+        default: /etc/redis/conf.d/replica.conf
+        description: >-
+          Path to the Redis replica configuration file. If this file exists and contains
+          'replicaof', the node is identified as a replica; otherwise it is a primary.
       profile_redis_cluster_case2_secure_logging:
         type: bool
         required: false
         default: true
         description: >-
-          Controls no_log on tasks that handle secrets (redis_password, redis_service_token).
-          Set to false only when debugging credential-related failures.
+          Controls no_log on tasks that handle secret credentials (redis_password,
+          redis_service_token, secret_store_token). Set to false only for debugging.
       redis_password:
         type: str
         required: true
         description: >-
-          Redis authentication password (requirepass). Injected at runtime by the AAP credential type.
-          Must NOT be set to the default 'CHANGEME' value before deployment.
+          Redis requirepass password. Injected at runtime by the AAP credential type.
+          Must NOT be stored in plaintext — use Ansible Vault or AAP credential injection.
       redis_service_token:
         type: str
         required: true
         description: >-
-          Service token used to authenticate with the Enterprise Scheduler when registering
-          the redis-node. Injected at runtime by the AAP credential type.
+          Service token for the Enterprise Scheduler / secret store integration.
+          Injected at runtime by the AAP credential type.
+      secret_store_url:
+        type: str
+        required: true
+        description: >-
+          URL of the internal secret store backend (CompanyInternal::SecretStore).
+          Injected at runtime by the AAP credential type.
+      secret_store_token:
+        type: str
+        required: true
+        description: >-
+          Authentication token for the internal secret store backend.
+          Injected at runtime by the AAP credential type.

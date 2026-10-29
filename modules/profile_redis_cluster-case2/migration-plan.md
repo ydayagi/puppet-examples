@@ -8,10 +8,10 @@ The migration scope is moderate in size but carries **above-average complexity**
 
 1. A **custom Puppet function** (`myFunction1`) that performs an HTTP health-check call at catalog compile time.
 2. A **proprietary secret-store function** (`mySecretFunction1`) backed by an internal Ruby library (`company_internal_lib`) that fetches credentials at compile time.
-3. A **custom Puppet type/provider pair** (`mySecretType1` / `mySecretProvider1`) that registers nodes in a proprietary Enterprise Scheduler platform via the `schedulerctl` CLI.
-4. A second **custom type/provider pair** (`myDeploy1` / `myDeployProvider`) that downloads and installs a versioned application artifact.
+3. A **custom Puppet type/provider pair** (`mySecretType1` / `mySecretProvider1`) that registers nodes in a proprietary Enterprise Scheduler platform via a CLI tool (`schedulerctl`).
+4. A **custom Puppet type/provider pair** (`myDeploy1` / `myDeployProvider`) that downloads and installs a versioned application artifact.
 
-The core Redis configuration work is straightforward to migrate; the blockers are the proprietary integrations above. Assuming the proprietary CLI and secret-store are accessible from Ansible control nodes, a realistic timeline is **3–5 weeks**: ~1 week for the Redis role, ~1–2 weeks for the custom integrations, and ~1 week for testing and validation.
+The core Redis configuration work is straightforward to migrate; the blockers are the proprietary integrations above. Assuming the proprietary tooling questions are resolved in parallel, a realistic end-to-end migration timeline is **3–5 weeks** for a single engineer, or **2–3 weeks** with two engineers working in parallel.
 
 ---
 
@@ -27,41 +27,41 @@ Only modules whose paths were confirmed in the provided repository tree are list
 ---
 
 - **profile_redis_cluster_case2**
-  - **Description**: Redis cluster node profile that installs and configures a Redis server via the `puppet-redis` Forge module, manages persistence (AOF + RDB snapshots), enforces memory limits and eviction policy, performs an HTTP health-check against a local application endpoint at catalog compile time, fetches a Redis service token from a proprietary internal secret store, deploys a versioned application artifact (`myapp 2.1.0`) from an internal artifact server, and registers the node in a proprietary Enterprise Scheduler platform via the `schedulerctl` CLI. Node discovery for cluster membership is driven by a live PuppetDB query.
-  - **Path**: `.` (root of repository — the module IS the repository)
+  - **Description**: Redis cluster node profile that installs and configures a Redis server via the `puppet-redis` Forge module. Manages the Redis package, service, and `redis.conf` (bind address, port, password, AOF persistence, RDB snapshots, memory policy). Performs PuppetDB-based cluster node discovery, runs an HTTP health-check against a local sidecar endpoint, deploys a versioned application artifact (`myapp 2.1.0`) from an internal artifact server, retrieves a service token from a proprietary secret store, and registers the node in a proprietary Enterprise Scheduler platform.
+  - **Path**: `.` (repository root — the module itself is the repository)
   - **Technology**: Puppet
   - **Key Features**:
-    - Redis installation and service management via `puppet-redis` (bind `0.0.0.0`, configurable port/password/maxmemory)
-    - Templated `redis.conf` with AOF persistence (`appendfsync everysec`), RDB snapshots, and memory policy
+    - Redis 6/7 installation and configuration via `puppet-redis` (bind `0.0.0.0`, configurable port/password/maxmemory)
+    - AOF persistence (`appendonly yes`, `appendfsync everysec`) and RDB snapshots
+    - `allkeys-lru` eviction policy (configurable via Hiera/parameter)
+    - PuppetDB live node discovery (`puppetdb_query`) to enumerate cluster peers
+    - Custom HTTP health-check function (`myFunction1`) writing JSON result to `/var/lib/redis/health_check.json`
+    - Proprietary secret retrieval (`mySecretFunction1` → `company_internal_lib::SecretStore`)
+    - Versioned artifact deployment (`myDeploy1` custom type, downloads tarball from internal artifact server, tracks version via `version.txt`)
+    - Enterprise Scheduler registration (`mySecretType1` custom type, wraps `schedulerctl` CLI)
     - Custom Facter fact (`redis_role`) that detects primary vs. replica by inspecting `/etc/redis/conf.d/replica.conf`
-    - PuppetDB-driven cluster node discovery (`puppetdb_query`)
-    - HTTP health-check function (`myFunction1`) — calls `http://localhost:8080/health` at compile time and writes result to `/var/lib/redis/health_check.json`
-    - Proprietary secret retrieval (`mySecretFunction1`) — fetches `redis_service_token` via `company_internal_lib::SecretStore`
-    - Custom application deployment type (`myDeploy1`) — downloads `myapp-2.1.0.tar.gz` from `http://artifacts.internal`, extracts to `/opt/myapp`, tracks version via `version.txt`
-    - Enterprise Scheduler registration type (`mySecretType1`) — registers the node with a daily schedule via `/usr/local/bin/schedulerctl`
+    - ERB template (`redis.conf.erb`) embedding FQDN, port, password, maxmemory, and eviction policy
 
 ---
 
 ### Infrastructure Files
 
-- `Puppetfile`: Declares Forge module pins (`puppetlabs-stdlib 9.6.0`, `puppet-redis 11.0.0`, `puppetlabs-apt 9.4.0`). Must be translated into Ansible Galaxy `requirements.yml` and/or direct package tasks.
-- `metadata.json`: Module metadata (version 3.1.0, OS support matrix, Puppet version constraints). Informs the Ansible role's `meta/main.yml`.
-- `manifests/init.pp`: Main class — orchestrates all resources, PuppetDB query, health-check, secret fetch, artifact deploy, and scheduler registration.
-- `manifests/install.pp`: Subclass — delegates to `puppet-redis` class and ensures `/var/log/redis` directory.
-- `templates/redis.conf.erb`: ERB template for `redis.conf`; maps directly to an Ansible Jinja2 template (`redis.conf.j2`).
-- `lib/facter/redis_role.rb`: Custom Facter fact detecting primary/replica role. Must be replaced with an Ansible fact task (e.g., `stat` + `lineinfile` check, or a custom `set_fact`).
-- `lib/puppet/functions/myFunction1.rb`: HTTP GET helper using Ruby `net/http`. Replace with Ansible `uri` module.
-- `lib/puppet/functions/mySecretFunction1.rb`: Proprietary secret-store client using `company_internal_lib`. Requires integration with Ansible Vault or a supported secrets backend (HashiCorp Vault, CyberArk, AWS Secrets Manager, etc.).
-- `lib/puppet/type/myDeploy1.rb` + `lib/puppet/provider/myDeploy1/myDeployProvider.rb`: Custom artifact deployment type/provider. Replace with Ansible `get_url` + `unarchive` + `copy`/`template` tasks.
-- `lib/puppet/type/mySecretType1.rb` + `lib/puppet/provider/mySecretType1/mySecretProvider1.rb`: Enterprise Scheduler registration type/provider wrapping `schedulerctl`. Replace with Ansible `command`/`shell` tasks or a custom module calling `schedulerctl`.
+- `Puppetfile`: Declares three Forge module dependencies pinned to exact versions (`puppetlabs-stdlib 9.6.0`, `puppet-redis 11.0.0`, `puppetlabs-apt 9.4.0`). Must be replaced by Ansible Galaxy `requirements.yml`.
+- `metadata.json`: Module metadata (name, version, author, OS support matrix, dependency version ranges). Provides the authoritative OS target list (RHEL 8/9, Ubuntu 22.04/24.04) and Puppet version requirement (>= 7, < 9). No direct Ansible equivalent; information should be captured in the role's `README.md` and `meta/main.yml`.
+- `templates/redis.conf.erb`: ERB template for `redis.conf`. Must be converted to a Jinja2 template (`.j2`). Variable references (`@redis_port`, `@redis_password`, `@maxmemory_mb`, `@maxmemory_policy`, `@facts['networking']['fqdn']`) map directly to Ansible variables and the `ansible_fqdn` magic variable.
+- `lib/facter/redis_role.rb`: Custom Facter fact that classifies a node as `primary` or `replica` by checking for `replicaof` in `/etc/redis/conf.d/replica.conf`. Must be replaced by an Ansible task using `stat` + `lineinfile`/`slurp` to set a host variable or fact (`set_fact`).
+- `lib/puppet/functions/myFunction1.rb`: Custom Puppet function performing an HTTP GET and returning parsed JSON. Must be replaced by an Ansible `uri` module task.
+- `lib/puppet/functions/mySecretFunction1.rb`: Custom Puppet function fetching secrets from `company_internal_lib::SecretStore`. Must be replaced by an Ansible lookup plugin (e.g., `community.hashi_vault.hashi_vault`, a custom lookup, or environment-variable injection depending on the backing store).
+- `lib/puppet/type/myDeploy1.rb` + `lib/puppet/provider/myDeploy1/myDeployProvider.rb`: Custom type/provider that downloads a versioned tarball and extracts it. Must be replaced by Ansible `get_url` + `unarchive` tasks with a version-file idempotency check.
+- `lib/puppet/type/mySecretType1.rb` + `lib/puppet/provider/mySecretType1/mySecretProvider1.rb`: Custom type/provider that registers/unregisters nodes in a proprietary Enterprise Scheduler via `schedulerctl`. Must be replaced by an Ansible `command`/`shell` task (or a custom module) wrapping `schedulerctl`.
 
 ---
 
 ### Target Details
 
-- **Operating System**: Red Hat Enterprise Linux 8 and 9 (primary), Ubuntu 22.04 and 24.04 (secondary), as declared in `metadata.json`. Package management differs between families — the `puppetlabs-apt` dependency confirms Ubuntu support is active.
+- **Operating System**: Red Hat Enterprise Linux 8 and 9 (primary targets per `metadata.json`); Ubuntu 22.04 and 24.04 also supported. Package management differs between families — the `puppetlabs-apt` dependency confirms Debian/Ubuntu support is active. Ansible tasks must branch on `ansible_os_family` where package names or paths differ.
 - **Virtual Machine Technology**: Not specified in the repository.
-- **Cloud Platform**: Not specified. The artifact URL (`http://artifacts.internal`) and scheduler CLI suggest an on-premises or private-cloud environment.
+- **Cloud Platform**: Not specified. The internal artifact URL (`http://artifacts.internal/`) and internal secret store suggest an on-premises or private-cloud environment.
 
 ---
 
@@ -69,59 +69,59 @@ Only modules whose paths were confirmed in the provided repository tree are list
 
 ### Key Dependencies to Address
 
-- **puppetlabs-stdlib (9.6.0)**: Used for `stdlib::to_json`. Replace with Ansible's built-in `to_json` Jinja2 filter — no external dependency needed.
-- **puppet-redis (11.0.0)**: Wraps Redis package installation and service management. Replace with direct Ansible tasks: `package` (redis / redis-server), `template` for `redis.conf.j2`, `service` for `redis` / `redis-server`. Consider the community `geerlingguy.redis` Galaxy role as a starting point.
-- **puppetlabs-apt (9.4.0)**: Manages APT sources on Ubuntu. Replace with Ansible `apt_repository` and `apt_key` tasks, gated by `when: ansible_os_family == 'Debian'`.
-- **company_internal_lib (internal Ruby gem)**: Backs `mySecretFunction1`. This library has no Ansible equivalent — the secrets integration must be re-implemented against a supported Ansible secrets lookup plugin (see Security Considerations).
-- **schedulerctl CLI (/usr/local/bin/schedulerctl)**: Proprietary binary used by `mySecretType1`. Must be present on managed nodes; wrap with Ansible `command` tasks or a custom Ansible module for idempotency.
-- **PuppetDB**: Used for live cluster node discovery. Replace with Ansible dynamic inventory, group variables, or a custom inventory plugin that queries the same data source.
+- **puppetlabs-stdlib (9.6.0)**: Used for `stdlib::to_json()`. Replace with Ansible's built-in `to_json` Jinja2 filter — no external dependency needed.
+- **puppet-redis (11.0.0)**: Manages Redis package installation, service, and base configuration. Replace with direct Ansible tasks: `package` (install `redis` / `redis-server`), `template` (deploy `redis.conf.j2`), and `service` (enable + start `redis`). Alternatively, adopt the `geerlingguy.redis` Ansible Galaxy role as a drop-in equivalent.
+- **puppetlabs-apt (9.4.0)**: Manages APT repository sources on Ubuntu. Replace with the `ansible.builtin.apt_repository` module or the `geerlingguy.repo-epel` / distro-specific tasks.
+- **company_internal_lib (Ruby gem, internal)**: Backing library for `mySecretFunction1`. The Ansible replacement depends entirely on what secret backend this library wraps (HashiCorp Vault, CyberArk, AWS Secrets Manager, etc.). This must be clarified with the Platform Team before migration begins — it is the single highest-risk dependency.
+- **schedulerctl CLI (/usr/local/bin/schedulerctl)**: Proprietary Enterprise Scheduler CLI. Ansible will invoke it via `command` or `shell` tasks. Idempotency must be implemented manually (query before register/unregister). A custom Ansible module is recommended if the CLI is used across multiple roles.
+- **PuppetDB (puppetdb_query)**: Used for live cluster node discovery. Ansible has no built-in equivalent. Replace with a dynamic inventory script/plugin, a static group in the inventory, or a custom lookup against a CMDB/service-discovery endpoint.
 
 ---
 
 ### Security Considerations
 
-- **Hardcoded default password**: `init.pp` declares `String $redis_password = 'CHANGEME'` as a class parameter default. This credential must be stored in Ansible Vault or a secrets manager and never committed to source control. Confirm whether the real value is supplied via Hiera (not present in this repo) or is genuinely left as the default.
-- **Proprietary secret store (`mySecretFunction1` / `company_internal_lib`)**: The `redis_service_token` is fetched at Puppet compile time from an internal secret store. The migration must map this to an Ansible-compatible lookup plugin. The target secrets backend (HashiCorp Vault, CyberArk, AWS Secrets Manager, etc.) must be identified and the lookup plugin configured before the role can be used in production.
-- **Redis `requirepass` in template**: The `redis.conf.erb` template writes the Redis password in plaintext into the configuration file on disk. The Ansible equivalent (`redis.conf.j2`) must ensure the file is owned by `redis:redis` with mode `0600` (tighter than the current `0644` on the health-check JSON) to prevent credential exposure.
-- **Artifact download over plain HTTP**: `myDeploy1` fetches `http://artifacts.internal/myapp-2.1.0.tar.gz` over unencrypted HTTP. The Ansible `get_url` replacement should use HTTPS and validate a checksum (`checksum` parameter) to prevent tampering.
-- **Redis bound to all interfaces**: `bind 0.0.0.0` is set both in `install.pp` and `redis.conf.erb`. Confirm whether network-level controls (firewall, security groups) restrict access; if not, the Ansible role should add a firewall task.
-- **Health-check JSON world-readable**: `/var/lib/redis/health_check.json` is written with mode `0644`. If the health-check response contains sensitive data, tighten permissions in the Ansible equivalent.
+- **Hardcoded default password**: `$redis_password` defaults to the literal string `'CHANGEME'` in `manifests/init.pp`. This value is also rendered directly into `redis.conf.erb` as `requirepass`. In Ansible, this parameter must be sourced from Ansible Vault or an external secrets backend — never stored in plaintext in a variable file or role default.
+- **Proprietary secret store (`mySecretFunction1`)**: Fetches `redis_service_token` at Puppet catalog compile time via `company_internal_lib::SecretStore`. The Ansible equivalent lookup plugin must be identified and tested before migration. The token itself must never appear in Ansible logs (`no_log: true` on the retrieving task).
+- **Artifact download over plain HTTP**: `myDeploy1` downloads `myapp-2.1.0.tar.gz` from `http://artifacts.internal/` (unencrypted). The Ansible `get_url` task should enforce `https://` and validate a checksum (`checksum` parameter) to prevent tampering.
+- **Redis password in template**: The ERB template writes `requirepass <%= @redis_password %>` in cleartext to `/etc/redis/redis.conf`. The Jinja2 replacement must ensure the file has mode `0640`, owner `redis`, group `redis`, and that the Ansible task uses `no_log: true` when the variable is referenced in debug output.
+- **`redis_role` fact exposure**: The custom Facter fact exposes node topology (primary/replica) as a system fact visible to all Puppet agents. In Ansible, this should be a scoped host variable rather than a globally broadcast fact.
 
 ---
 
 ### Technical Challenges
 
-- **PuppetDB cluster discovery → Ansible dynamic inventory**: `init.pp` uses `puppetdb_query` to discover all nodes running this profile at catalog compile time. Ansible has no compile-time equivalent. This must be replaced with a dynamic inventory source (e.g., a PuppetDB inventory plugin, a CMDB query, or static group membership). The cluster topology logic must be re-evaluated.
-- **Compile-time HTTP health-check (`myFunction1`)**: The health-check runs during Puppet catalog compilation, before any resources are applied. In Ansible, the equivalent `uri` task runs during play execution — the ordering semantics differ. The health-check task must be placed explicitly in the play and its failure handling (currently a hard `Puppet::Error`) must be translated to `failed_when` / `ignore_errors` logic.
-- **Proprietary secret-store integration**: `mySecretFunction1` depends on `company_internal_lib`, an internal Ruby gem with no public documentation in this repository. The Ansible migration team must obtain the API contract for this library and map it to a supported lookup plugin. This is the highest-risk item in the migration.
-- **Custom type/provider idempotency (`myDeploy1`)**: The provider implements idempotency by comparing `version.txt` against the desired version. The Ansible replacement (`get_url` + `unarchive`) must replicate this logic — likely via a `stat` task on `version.txt` followed by conditional download/extract tasks.
-- **Enterprise Scheduler registration (`mySecretType1` / `schedulerctl`)**: The `schedulerctl` CLI is proprietary. Its `query`, `register`, and `unregister` subcommands must be wrapped in Ansible tasks with proper idempotency guards (`changed_when`, `failed_when`). If the CLI is not idempotent by default, a custom Ansible module may be required.
-- **Custom Facter fact (`redis_role`)**: The `redis_role` fact (primary/replica) is available to all Puppet resources at catalog time. In Ansible, this must be gathered as a custom fact task early in the play (using `set_fact` after a `stat`/`slurp` check) and referenced by subsequent tasks.
-- **Cross-OS package name differences**: Redis is `redis` on RHEL and `redis-server` on Ubuntu/Debian. The Ansible role must use `ansible_os_family` conditionals or a `vars/` file per OS family, mirroring what `puppet-redis` and `puppetlabs-apt` handled automatically.
+- **PuppetDB cluster discovery → Ansible dynamic inventory**: `puppetdb_query` is called at catalog compile time to enumerate all nodes running this profile. Ansible has no equivalent compile-time query. This must be replaced by a dynamic inventory plugin (e.g., querying a CMDB, Consul, or a static group) before the role can manage multi-node cluster topology. This is the most architecturally significant change in the migration.
+- **Compile-time HTTP health check**: `myFunction1` is called during Puppet catalog compilation, meaning the health-check result influences resource ordering before any changes are applied. In Ansible, `uri` tasks run at execution time in playbook order — the semantics differ. The team must decide whether the health check should be a pre-task gate (fail-fast) or a post-task verification step.
+- **Proprietary `schedulerctl` idempotency**: The Puppet provider implements `exists?`/`create`/`destroy` with idempotent semantics. A raw `command` task in Ansible is not idempotent by default. The migration must implement a query step (`schedulerctl query`) and use `when` conditions or a custom module to replicate idempotent behavior.
+- **Custom type/provider for artifact deployment**: `myDeploy1` tracks installed version via `version.txt`. The Ansible replacement (`get_url` + `unarchive`) must replicate this version-check logic explicitly, e.g., using `stat` + `slurp` on `version.txt` and a `when` condition to skip download if the version already matches.
+- **Cross-platform package naming**: Redis is packaged as `redis` on RHEL and `redis-server` on Ubuntu/Debian. The Ansible role must use `ansible_os_family` or a `vars/` file per OS family to map the correct package name, mirroring what `puppet-redis` handled transparently.
+- **ERB → Jinja2 template conversion**: The `redis.conf.erb` template is straightforward, but the `@facts['networking']['fqdn']` reference must become `{{ ansible_fqdn }}`. All `@variable` references become `{{ variable }}`. The conversion is low-risk but must be validated against a running Redis instance.
+- **Facter custom fact → Ansible fact**: `redis_role.rb` runs on every agent. The Ansible equivalent (`set_fact` after a `stat`/`slurp` task) must be placed early in the play so downstream tasks can consume it, replicating the fact's availability throughout the run.
 
 ---
 
 ### Migration Order
 
-1. **Redis core role** — Translate `install.pp` and `redis.conf.erb` into an Ansible role with `package`, `template`, `file`, and `service` tasks. This is self-contained, well-understood, and delivers immediate value. Covers OS-family conditionals for RHEL vs. Ubuntu.
-2. **Custom Facter fact → Ansible fact task** — Replace `lib/facter/redis_role.rb` with a `set_fact` task block early in the play. Low risk, required by later tasks.
-3. **HTTP health-check (`myFunction1`)** — Replace with an Ansible `uri` task writing output to `/var/lib/redis/health_check.json` via `copy`. Straightforward, but ordering semantics relative to Redis startup must be validated.
-4. **Artifact deployment (`myDeploy1`)** — Replace with `get_url` + `unarchive` + version-tracking tasks. Moderate complexity; requires switching the artifact URL to HTTPS and adding checksum validation.
-5. **Secrets integration (`mySecretFunction1`)** — Identify the target secrets backend, configure the Ansible lookup plugin, and replace the `redis_service_token` fetch. This is the highest-risk item and should be unblocked early even if implemented later.
-6. **Enterprise Scheduler registration (`mySecretType1`)** — Wrap `schedulerctl` in Ansible `command` tasks with idempotency guards. Depends on `schedulerctl` being available on managed nodes and its API being documented.
-7. **Cluster node discovery (PuppetDB query)** — Replace with a dynamic inventory plugin or static group. This is an infrastructure-level concern that affects how the role is invoked, not the role itself; address it during integration testing.
+1. **Redis base configuration** (low risk, high value): Migrate `profile_redis_cluster_case2::install` first — package installation, `redis.conf.j2` template, log directory, and service management. This is pure infrastructure with no proprietary dependencies and can be validated immediately on both RHEL and Ubuntu.
+2. **Custom Facter fact → Ansible fact task** (low risk): Replace `lib/facter/redis_role.rb` with a `set_fact` task. No external dependencies; validates the primary/replica detection logic early.
+3. **ERB template conversion** (low risk): Convert `templates/redis.conf.erb` to `templates/redis.conf.j2` and wire it into the base configuration task. Validate rendered output against a known-good `redis.conf`.
+4. **HTTP health check (`myFunction1`)** (medium risk): Replace with an Ansible `uri` task. Decide on pre-task vs. post-task placement. Requires the local health-check sidecar (`http://localhost:8080/health`) to be running in the test environment.
+5. **Artifact deployment (`myDeploy1`)** (medium risk): Replace with `get_url` + `unarchive` + version-file idempotency logic. Requires access to the internal artifact server and agreement on HTTPS enforcement and checksum validation.
+6. **Secret retrieval (`mySecretFunction1`)** (high risk — blocker): Identify the backing secret store behind `company_internal_lib::SecretStore`, select the appropriate Ansible lookup plugin, and validate credential retrieval. This must be resolved before the role can be used in production. All tasks consuming the secret must set `no_log: true`.
+7. **Enterprise Scheduler registration (`mySecretType1`)** (high risk): Replace with idempotent `command` tasks wrapping `schedulerctl`. Requires `schedulerctl` to be present on the Ansible control node or target hosts, and requires the Enterprise Scheduler team to document the CLI's query/register/unregister interface.
+8. **PuppetDB cluster discovery → dynamic inventory** (high risk — architectural): Replace `puppetdb_query` with a dynamic inventory solution. This is the last step because it requires agreement on the inventory source of truth and may affect how the entire playbook is structured.
 
 ---
 
 ### Assumptions
 
-1. **Hiera not present**: No `hiera.yaml` or `data/` directory exists in this repository. It is assumed that class parameters (especially `$redis_password`) are supplied via an external Hiera hierarchy not included here. The actual production password must be located and migrated to Ansible Vault before go-live.
-2. **`company_internal_lib` API is accessible**: It is assumed the Platform Team can provide documentation or source for `company_internal_lib::SecretStore.fetch` so that the equivalent Ansible lookup can be implemented. If this library wraps HashiCorp Vault, CyberArk, or a similar product, the migration path is well-defined; if it is a fully bespoke system, a custom lookup plugin may need to be written.
-3. **`schedulerctl` will remain available on managed nodes**: The migration assumes `/usr/local/bin/schedulerctl` continues to be installed on target nodes independently of this role. If the CLI itself is deployed by another Puppet module, that deployment must also be migrated or pre-staged.
-4. **PuppetDB remains queryable during transition**: The cluster discovery mechanism relies on PuppetDB. It is assumed PuppetDB will remain operational during the migration period so that the existing Puppet-managed nodes continue to function while the Ansible replacement is being developed and tested.
-5. **Artifact server supports HTTPS**: It is assumed `artifacts.internal` can serve artifacts over HTTPS. If it cannot, the security improvement (HTTP → HTTPS) noted above will require infrastructure work outside this role's scope.
-6. **Single module per repository**: The repository root is the module itself (no `site/`, `modules/`, or `roles/` subdirectory). It is assumed this is a standalone profile repository and not a fragment of a larger control repo.
-7. **`myapp` deployment is in scope**: The `myDeploy1` resource deploys `myapp 2.1.0` as part of this profile. It is assumed this application deployment is intentionally bundled with the Redis profile and should remain so in the Ansible role, rather than being split into a separate role.
-8. **Target Ansible version**: Ansible 2.15+ (or `ansible-core` 2.15+) is assumed, which provides the `uri`, `get_url`, `unarchive`, `ansible.builtin.template`, and community lookup plugins referenced in this plan.
-9. **No environment.conf or r10k config**: No control-repo-level files (`environment.conf`, `.r10k/`) are present. It is assumed this module is consumed via r10k or Code Manager from a separate control repo that is not part of this migration scope.
-10. **Redis version not pinned**: Neither `install.pp` nor `metadata.json` specifies a Redis version. The Ansible role should pin a specific Redis package version to ensure reproducibility; the correct version must be confirmed with the Platform Team.
+1. **Secret store backend is unknown**: `mySecretFunction1` depends on `company_internal_lib::SecretStore`, which is an internal Ruby library not present in this repository. The actual secret backend (Vault, CyberArk, AWS Secrets Manager, etc.) is unknown and must be confirmed with the Platform Team before a lookup plugin can be selected.
+2. **`schedulerctl` availability**: It is assumed that `/usr/local/bin/schedulerctl` will be present on target hosts during Ansible runs, as it is today during Puppet agent runs. If it is only installed by a separate Puppet module, that dependency must be made explicit in the Ansible playbook ordering.
+3. **Internal artifact server accessibility**: The artifact URL `http://artifacts.internal/myapp-2.1.0.tar.gz` is assumed to remain reachable from Ansible-managed hosts. The migration plan assumes this URL will be upgraded to HTTPS.
+4. **Health-check sidecar is pre-existing**: `myFunction1` calls `http://localhost:8080/health`, implying a sidecar or application process is already running on port 8080. It is assumed this process is managed by a separate module/role and will be present before the Redis role executes.
+5. **PuppetDB replacement strategy is TBD**: No dynamic inventory source has been identified to replace `puppetdb_query`. It is assumed the team will decide between static inventory groups, a CMDB query, or a service-discovery lookup (Consul, etc.) as part of this migration.
+6. **Single-module repository**: The repository tree contains exactly one Puppet module (the root is the module). There are no nested modules, roles, or profiles beyond `profile_redis_cluster_case2`.
+7. **No Hiera data in this repository**: No `data/` directory or `hiera.yaml` was found. It is assumed Hiera data (e.g., per-environment passwords, memory limits) lives in a separate control repository and will need to be migrated to Ansible group/host vars or an external vars source.
+8. **OS family branching is required**: Both RHEL and Ubuntu are listed as supported. The Ansible role must handle package name differences (`redis` vs. `redis-server`) and potentially service name differences. It is assumed both OS families will be tested during migration.
+9. **Puppet `contain` semantics**: `contain profile_redis_cluster_case2::install` is used to prevent class resource ordering from leaking. In Ansible, task ordering is explicit and sequential, so this concern does not apply — but the migration team should verify no external module depends on ordering anchors provided by `contain`.
+10. **`myapp` artifact version is static**: The `myDeploy1` resource hardcodes version `2.1.0` and a specific artifact URL. It is assumed this will be parameterized in the Ansible role (e.g., via a `myapp_version` variable) rather than remaining hardcoded.

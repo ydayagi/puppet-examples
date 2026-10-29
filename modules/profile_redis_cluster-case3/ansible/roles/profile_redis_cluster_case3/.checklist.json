@@ -1,0 +1,189 @@
+{
+  "module_name": "profile_redis_cluster_case3",
+  "items": [
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/aap-configuration/controller_credential_types.yml",
+      "status": "complete",
+      "description": "AAP credential types configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/aap-configuration/controller_credentials.yml",
+      "status": "complete",
+      "description": "AAP credentials configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/validate_credentials.yml",
+      "status": "complete",
+      "description": "Credential validation tasks",
+      "notes": ""
+    },
+    {
+      "category": "structure",
+      "source_path": "metadata.json",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/meta/main.yml",
+      "status": "complete",
+      "description": "Role metadata (author, license, platforms, dependencies)",
+      "notes": "Updated from metadata.json: role_name, namespace x2a, author Platform Team, description, license Apache-2.0, platforms EL 8/9 and Ubuntu jammy/noble, galaxy_tags: redis, cache, cluster, inmemory, datastore, persistence, aof, replication."
+    },
+    {
+      "category": "attributes",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/defaults/main.yml",
+      "status": "complete",
+      "description": "Convert Puppet class parameter defaults to Ansible role defaults: redis_port=6379, redis_password=CHANGEME (must be vaulted), maxmemory_mb=2048, maxmemory_policy=allkeys-lru",
+      "notes": "All 4 variables from manifest defaults: redis_port, redis_password (AAP credential), maxmemory_mb, maxmemory_policy. Plus OS-specific service/package names, paths, and secure_logging toggle."
+    },
+    {
+      "category": "structure",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/meta/argument_specs.yml",
+      "status": "complete",
+      "description": "Role argument specs for fail-fast parameter validation \u2014 generate after defaults/main.yml is written",
+      "notes": "Full argument_specs for all defaults/main.yml variables plus AAP credential variables (redis_password, redis_service_token, secret_store_endpoint, secret_store_api_token)."
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/handlers/main.yml",
+      "status": "complete",
+      "description": "Handlers file \u2014 Redis service restart handler triggered by config file changes",
+      "notes": "Handler for Redis service restart triggered by config file changes."
+    },
+    {
+      "category": "templates",
+      "source_path": "templates/redis.conf.erb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/templates/redis.conf.j2",
+      "status": "complete",
+      "description": "Convert Redis main configuration ERB template to Jinja2. Variables: ansible_fqdn, redis_cluster_redis_port, redis_cluster_redis_password, redis_cluster_maxmemory_mb (rendered as {{ redis_cluster_maxmemory_mb }}mb), redis_cluster_maxmemory_policy",
+      "notes": "Converted ERB to Jinja2. Variables: ansible_fqdn, redis_cluster_redis_port, redis_password (secret, no_log applied on template task), redis_cluster_maxmemory_mb, redis_cluster_maxmemory_policy."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/main.yml",
+      "status": "complete",
+      "description": "Main tasks entry point \u2014 orchestrates all role tasks (include install, health check, myapp deploy, scheduler registration, CompanyApp settings, redis_role fact)",
+      "notes": "Fixed ordering: install moved before deploy_myapp, both moved before health_check. Redis user/dirs must exist before health_check writes health_check.json; myapp must be deployed before health_check fetches port 8080."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/install.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/install.yml",
+      "status": "complete",
+      "description": "Install tasks \u2014 Redis package install, redis.conf template deploy, /var/log/redis directory, Redis service ensure running/enabled. Converted from puppet-redis forge module usage in install.pp",
+      "notes": "Installs Redis package, creates log/pid/data directories, deploys redis.conf template (no_log for secret), enables and starts service. Notifies restart handler on config change."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/puppet/functions/myFunction1.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/health_check.yml",
+      "status": "complete",
+      "description": "Health check tasks \u2014 ansible.builtin.uri GET http://localhost:8080/health, write result to /var/lib/redis/health_check.json (owner: redis, group: redis, mode: 0644). Replaces myFunction1 custom function.",
+      "notes": "health_check.yml itself is correct. The ordering fix in main.yml ensures prerequisites (redis user, /var/lib/redis dir, myapp on port 8080) are satisfied before this task file runs."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/puppet/provider/myDeploy1/myDeployProvider.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/deploy_myapp.yml",
+      "status": "complete",
+      "description": "myapp artifact deployment tasks \u2014 idempotency check via version.txt, mkdir /opt/myapp, download artifact via get_url, unarchive, write version.txt. Replaces myDeploy1/myDeployProvider custom type.",
+      "notes": "Replaces myDeploy1/myDeployProvider. Idempotency via version.txt slurp check. Uses file, get_url, unarchive, copy modules."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/puppet/provider/mySecretType1/mySecretProvider1.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/scheduler_registration.yml",
+      "status": "complete",
+      "description": "Enterprise Scheduler registration tasks \u2014 wraps schedulerctl query/register/unregister for redis-node with schedule=daily. NOT SAFELY CONVERTIBLE \u2014 flagged for developer review (opaque CLI tool, unknown exit codes/output format).",
+      "notes": "Stub file with detailed developer guidance. NOT SAFELY CONVERTIBLE - schedulerctl CLI semantics are opaque. Contains debug task placeholder and full action items for developer. File already existed on disk with correct content."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/puppet/provider/myFormatType1/myFormatProvider1.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/company_app_conf.yml",
+      "status": "complete",
+      "description": "CompanyApp settings tasks \u2014 writes !app-mode=cluster and !health-port=8080 to /etc/company/app.conf using custom company_app_conf module. Replaces myFormatType1/myFormatProvider1 custom type.",
+      "notes": "Uses custom company_app_conf module (library/company_app_conf.py). Sets app-mode=cluster and health-port=8080 entries in /etc/company/app.conf."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/facter/redis_role.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/redis_role_fact.yml",
+      "status": "complete",
+      "description": "redis_role fact tasks \u2014 inline stat/slurp/set_fact to determine primary vs replica role by checking /etc/redis/conf.d/replica.conf. Replaces lib/facter/redis_role.rb custom fact.",
+      "notes": "Replaces redis_role.rb custom Facter fact. Uses stat, slurp, and set_fact to determine primary vs replica role inline. Constrained to Linux via ansible_kernel check."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/puppet/functions/mySecretFunction1.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/fetch_secret.yml",
+      "status": "complete",
+      "description": "Secret fetch tasks \u2014 fetches redis_service_token from CompanyInternal::SecretStore. NOT SAFELY CONVERTIBLE \u2014 flagged for developer review (opaque backend, unknown auth mechanism, downstream usage of $service_token not visible in analyzed manifests).",
+      "notes": "NOT SAFELY CONVERTIBLE stub. CompanyInternal::SecretStore backend is opaque. AAP credential variable redis_service_token is available at runtime. Stub contains full developer action items and guidance on tracing $service_token downstream usage."
+    },
+    {
+      "category": "files",
+      "source_path": "lib/puppet/type/myFormatType1.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/library/company_app_conf.py",
+      "status": "complete",
+      "description": "Custom Ansible module implementing !key=value proprietary CompanyApp settings file management. Replaces myFormatType1/myFormatProvider1. Parameters: file, entry, value, state (present/absent). Must be idempotent.",
+      "notes": "Custom Python Ansible module implementing !key=value entry management for proprietary CompanyApp settings file. Full idempotency, check_mode support, error handling."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/molecule.yml",
+      "status": "complete",
+      "description": "Molecule scenario configuration \u2014 delegated driver, local connection for AAP testing",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/converge.yml",
+      "status": "complete",
+      "description": "Molecule converge playbook \u2014 runs the role via a single ansible.builtin.include_role task",
+      "notes": "Single include_role task for profile_redis_cluster_case3. Runs the role for real via ansible.builtin.include_role with gather_facts: true."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/verify.yml",
+      "status": "complete",
+      "description": "Molecule verify playbook \u2014 checks /etc/redis/redis.conf, /var/log/redis/, /var/lib/redis/health_check.json, /opt/myapp/version.txt, /opt/myapp/, /etc/company/app.conf entries, Redis ping, health endpoint",
+      "notes": "Split into 2 plays. Play 1: stat all 7 key paths (redis.conf, log dir, data dir, health_check.json, /opt/myapp, version.txt, app.conf) with attribute assertions. Play 2: slurp content checks (version, bind/port/AOF/maxmemory directives, !app-mode and !health-port entries), service_facts assert for redis/redis-server running, wait_for port 6379."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/create.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance create playbook (delegated driver)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/destroy.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance destroy playbook (delegated driver)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/meta/main.yml",
+      "status": "complete",
+      "description": "Created standard meta/main.yml",
+      "notes": ""
+    }
+  ]
+}

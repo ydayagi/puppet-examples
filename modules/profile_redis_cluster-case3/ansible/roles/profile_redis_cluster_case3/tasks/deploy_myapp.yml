@@ -1,0 +1,45 @@
+---
+# Deploy myapp artifact
+# Replaces: myDeploy1 'myapp' (custom type + myDeployProvider)
+# Idempotency: checks /opt/myapp/version.txt before deploying
+
+- name: Read myapp version.txt (idempotency check)
+  ansible.builtin.slurp:
+    src: "{{ redis_cluster_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+  register: redis_cluster_myapp_version_file
+  ignore_errors: true
+
+- name: Deploy myapp {{ redis_cluster_myapp_version }}
+  when: >
+    redis_cluster_myapp_version_file.failed or
+    (redis_cluster_myapp_version_file.content | b64decode | trim) != redis_cluster_myapp_version
+  block:
+    - name: Ensure myapp install directory exists
+      ansible.builtin.file:
+        path: "{{ redis_cluster_myapp_install_dir }}" # noqa: R114 - path from role-defined variable, not user input
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Download myapp artifact # noqa: R106 - URL source is role-defined variable, not user input
+      ansible.builtin.get_url:
+        url: "{{ redis_cluster_myapp_url }}" # noqa: R104 - URL scheme/host from role vars; not user input
+        dest: "{{ redis_cluster_myapp_install_dir }}/artifact.tar.gz" # noqa: R114 - path from role-defined variable, not user input
+        mode: "0644"
+
+    - name: Extract myapp artifact # noqa: R106 - src is a role-defined local path, not a remote URL
+      ansible.builtin.unarchive:
+        src: "{{ redis_cluster_myapp_install_dir }}/artifact.tar.gz" # noqa: R104 R114 - src is a role-defined local path, not a remote URL
+        dest: "{{ redis_cluster_myapp_install_dir }}" # noqa: R114 - path from role-defined variable, not user input
+        remote_src: true
+        mode: "0755"
+
+    - name: Write myapp version.txt # noqa: L071 - copy with Jinja content is intentional; plain string version, no template needed
+      ansible.builtin.copy:
+        content: "{{ redis_cluster_myapp_version }}"
+        dest: "{{ redis_cluster_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true

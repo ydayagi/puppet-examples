@@ -1,12 +1,16 @@
---- # noqa: R401 - role under test performs inbound transfers from internal artifact mirror; sources are audited in tasks/main.yml
+# noqa: R401 - audit rule aggregates inbound sources from included role tasks; sources are role-defined variables validated by assert
+---
 - name: Converge
   hosts: all
   gather_facts: true
   vars:
-    # AAP credential variables — use safe test values in molecule
-    # In production these are injected by the AAP credential type
-    redis_password: "MoleculeTestPassword123!"
-    redis_service_token: "molecule-test-token"
+    # Credential variables normally injected by AAP credential type at runtime.
+    # Molecule supplies safe placeholder values so validate_credentials.yml passes.
+    # ACTION REQUIRED before production use: replace with vaulted values.
+    redis_password: CHANGEME_molecule_test
+    secret_store_url: http://secret-store.internal
+    secret_store_token: molecule_test_token
+    redis_service_token: molecule_test_service_token
   tasks:
     - name: Include profile_redis_cluster_case2
       ansible.builtin.include_role: # noqa: L038 - role-under-test resolves at runtime; unresolved only when scanned in isolation

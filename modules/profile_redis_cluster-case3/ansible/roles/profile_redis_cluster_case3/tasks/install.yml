@@ -1,0 +1,50 @@
+---
+# Install and configure Redis
+# Replaces: profile_redis_cluster_case3::install (manifests/install.pp)
+# Manages: Redis package, configuration, service, and log directory
+
+- name: Install Redis package
+  ansible.builtin.package:
+    name: "{{ redis_cluster_package_name }}"
+    state: present
+
+- name: Ensure Redis log directory exists
+  ansible.builtin.file:
+    path: "{{ redis_cluster_log_dir }}" # noqa: R114 - path from role defaults, not user input
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0755"
+
+- name: Ensure Redis PID directory exists
+  ansible.builtin.file:
+    path: "{{ redis_cluster_pid_dir }}" # noqa: R114 - path from role defaults, not user input
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0755"
+
+- name: Ensure Redis data directory exists
+  ansible.builtin.file:
+    path: "{{ redis_cluster_data_dir }}" # noqa: R114 - path from role defaults, not user input
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0750"
+
+- name: Deploy Redis configuration
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: "{{ redis_cluster_config_file }}" # noqa: R114 - path from role-defined variable, not user input
+    owner: redis
+    group: redis
+    mode: "0640"
+    backup: true
+  notify: Restart redis
+  no_log: "{{ redis_cluster_case3_secure_logging }}"
+
+- name: Enable and start Redis service
+  ansible.builtin.service:
+    name: "{{ redis_cluster_service_name }}"
+    state: started
+    enabled: true
