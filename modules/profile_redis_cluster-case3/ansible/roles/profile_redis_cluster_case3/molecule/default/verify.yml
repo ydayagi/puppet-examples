@@ -1,0 +1,167 @@
+---
+# Play 1: Verify files and directories exist with correct attributes
+- name: Verify — file and directory presence
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Stat key files and directories
+      ansible.builtin.stat:
+        path: "{{ item_path }}" # noqa: R114 - paths are fixed literals defined in this test, not user input
+      loop:
+        - /etc/redis/redis.conf
+        - /var/log/redis
+        - /var/lib/redis
+        - /var/lib/redis/health_check.json
+        - /opt/myapp
+        - /opt/myapp/version.txt
+        - /etc/company/app.conf
+      loop_control:
+        loop_var: item_path
+      register: redis_cluster_stat_results
+
+    - name: Assert all expected paths exist
+      ansible.builtin.assert:
+        that:
+          - item_stat['stat']['exists']
+        fail_msg: "Expected path does not exist"
+      loop: "{{ redis_cluster_stat_results['results'] }}"
+      loop_control:
+        loop_var: item_stat
+
+    - name: Assert Redis log directory is a directory
+      ansible.builtin.assert:
+        that:
+          - redis_cluster_stat_results['results'][1]['stat']['isdir']
+        fail_msg: "/var/log/redis is not a directory"
+
+    - name: Assert Redis log directory has correct mode
+      ansible.builtin.assert:
+        that:
+          - redis_cluster_stat_results['results'][1]['stat']['mode'] == '0755'
+        fail_msg: "/var/log/redis does not have mode 0755"
+
+    - name: Assert Redis log directory owner is redis
+      ansible.builtin.assert:
+        that:
+          - redis_cluster_stat_results['results'][1]['stat']['pw_name'] == 'redis'
+        fail_msg: "/var/log/redis owner is not redis"
+
+    - name: Assert health_check.json owner is redis
+      ansible.builtin.assert:
+        that:
+          - redis_cluster_stat_results['results'][3]['stat']['pw_name'] == 'redis'
+        fail_msg: "/var/lib/redis/health_check.json owner is not redis"
+
+    - name: Assert health_check.json has correct mode
+      ansible.builtin.assert:
+        that:
+          - redis_cluster_stat_results['results'][3]['stat']['mode'] == '0644'
+        fail_msg: "/var/lib/redis/health_check.json does not have mode 0644"
+
+    - name: Assert redis.conf has correct mode
+      ansible.builtin.assert:
+        that:
+          - redis_cluster_stat_results['results'][0]['stat']['mode'] == '0640'
+        fail_msg: "/etc/redis/redis.conf does not have mode 0640"
+
+    - name: Assert redis.conf owner is redis
+      ansible.builtin.assert:
+        that:
+          - redis_cluster_stat_results['results'][0]['stat']['pw_name'] == 'redis'
+        fail_msg: "/etc/redis/redis.conf owner is not redis"
+
+    - name: Assert myapp install directory is a directory
+      ansible.builtin.assert:
+        that:
+          - redis_cluster_stat_results['results'][4]['stat']['isdir']
+        fail_msg: "/opt/myapp is not a directory"
+
+    - name: Assert myapp version.txt is non-empty
+      ansible.builtin.assert:
+        that:
+          - redis_cluster_stat_results['results'][5]['stat']['size'] > 0
+        fail_msg: "/opt/myapp/version.txt is empty"
+
+# Play 2: Verify file contents, service state, and port availability
+- name: Verify — file contents and service state
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Slurp key files for content verification
+      ansible.builtin.slurp:
+        src: "{{ item_slurp_path }}" # noqa: R114 - paths are fixed literals defined in this test, not user input
+      loop:
+        - /opt/myapp/version.txt
+        - /etc/redis/redis.conf
+        - /etc/company/app.conf
+      loop_control:
+        loop_var: item_slurp_path
+      register: redis_cluster_slurp_results
+
+    - name: Assert myapp version.txt contains correct version
+      ansible.builtin.assert:
+        that:
+          - (redis_cluster_slurp_results['results'][0]['content'] | b64decode | trim) == '2.1.0'
+        fail_msg: "/opt/myapp/version.txt does not contain expected version"
+
+    - name: Assert redis.conf contains expected bind directive
+      ansible.builtin.assert:
+        that:
+          - "'bind 0.0.0.0' in (redis_cluster_slurp_results['results'][1]['content'] | b64decode)"
+        fail_msg: "/etc/redis/redis.conf missing 'bind 0.0.0.0'"
+
+    - name: Assert redis.conf contains expected port directive
+      ansible.builtin.assert:
+        that:
+          - "'port 6379' in (redis_cluster_slurp_results['results'][1]['content'] | b64decode)"
+        fail_msg: "/etc/redis/redis.conf missing 'port 6379'"
+
+    - name: Assert redis.conf contains AOF persistence directive
+      ansible.builtin.assert:
+        that:
+          - "'appendonly yes' in (redis_cluster_slurp_results['results'][1]['content'] | b64decode)"
+        fail_msg: "/etc/redis/redis.conf missing 'appendonly yes'"
+
+    - name: Assert redis.conf contains maxmemory directive
+      ansible.builtin.assert:
+        that:
+          - "'maxmemory 2048mb' in (redis_cluster_slurp_results['results'][1]['content'] | b64decode)"
+        fail_msg: "/etc/redis/redis.conf missing 'maxmemory 2048mb'"
+
+    - name: Assert redis.conf contains maxmemory-policy directive
+      ansible.builtin.assert:
+        that:
+          - "'maxmemory-policy allkeys-lru' in (redis_cluster_slurp_results['results'][1]['content'] | b64decode)"
+        fail_msg: "/etc/redis/redis.conf missing 'maxmemory-policy allkeys-lru'"
+
+    - name: Assert company app.conf contains app-mode entry
+      ansible.builtin.assert:
+        that:
+          - "'!app-mode=cluster' in (redis_cluster_slurp_results['results'][2]['content'] | b64decode)"
+        fail_msg: "/etc/company/app.conf missing '!app-mode=cluster'"
+
+    - name: Assert company app.conf contains health-port entry
+      ansible.builtin.assert:
+        that:
+          - "'!health-port=8080' in (redis_cluster_slurp_results['results'][2]['content'] | b64decode)"
+        fail_msg: "/etc/company/app.conf missing '!health-port=8080'"
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Redis service is active and enabled
+      ansible.builtin.assert:
+        that:
+          - >-
+            ('redis.service' in ansible_facts['services'] and
+            ansible_facts['services']['redis.service']['state'] == 'running') or
+            ('redis-server.service' in ansible_facts['services'] and
+            ansible_facts['services']['redis-server.service']['state'] == 'running')
+        fail_msg: "Redis service (redis or redis-server) is not running"
+
+    - name: Assert Redis is listening on port 6379
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 6379
+        state: started
+        timeout: 10

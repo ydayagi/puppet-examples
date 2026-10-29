@@ -1,21 +1,28 @@
 ---
 galaxy_info:
-  author: Migration Tool
-  description: Migrated to modern Ansible
-  galaxy_tags:
-    - x2ansible
+  role_name: profile_redis_cluster_case2
+  namespace: x2a
+  author: Platform Team
+  description: >-
+    Installs and configures a Redis cluster node with password authentication,
+    memory limits, append-only persistence, companion application deployment,
+    and health check snapshot collection.
   license: Apache-2.0
   min_ansible_version: 2.14.0
-  namespace: x2a
   platforms:
-    - name: Ubuntu
-      versions:
-        - bionic
-        - focal
     - name: EL
       versions:
-        - "7"
         - "8"
         - "9"
-        - "10"
-  role_name: profile_redis_cluster_case2
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - redis
+    - cache
+    - cluster
+    - datastore
+    - inmemory
+    - persistence
+    - deployment

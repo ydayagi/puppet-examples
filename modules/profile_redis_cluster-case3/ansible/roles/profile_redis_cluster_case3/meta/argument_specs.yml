@@ -1,0 +1,120 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure a Redis cluster node with companion services
+    description:
+      - Deploys a Redis node as part of a cluster with AOF persistence and memory management.
+      - Installs the Redis package, renders the configuration file, and manages the service.
+      - Deploys the myapp companion artifact with idempotent version tracking.
+      - Fetches a health check endpoint and writes the result to disk.
+      - Manages proprietary CompanyApp settings file entries using the company_app_conf module.
+      - Determines the Redis node role (primary vs replica) from the filesystem.
+    options:
+      redis_cluster_redis_port:
+        type: int
+        required: false
+        default: 6379
+        description: TCP port Redis listens on.
+      redis_cluster_maxmemory_mb:
+        type: int
+        required: false
+        default: 2048
+        description: >-
+          Maximum memory Redis may use in megabytes. Rendered as e.g. '2048mb' in redis.conf.
+      redis_cluster_maxmemory_policy:
+        type: str
+        required: false
+        default: allkeys-lru
+        description: Redis eviction policy applied when the memory limit is reached.
+      redis_cluster_service_name:
+        type: str
+        required: false
+        default: redis-server
+        description: Name of the Redis system service (OS-specific; overridden in vars/).
+      redis_cluster_package_name:
+        type: str
+        required: false
+        default: redis-server
+        description: Name of the Redis system package to install (OS-specific; overridden in vars/).
+      redis_cluster_config_file:
+        type: str
+        required: false
+        default: /etc/redis/redis.conf
+        description: Absolute path to the Redis configuration file.
+      redis_cluster_log_dir:
+        type: str
+        required: false
+        default: /var/log/redis
+        description: Directory for Redis log files.
+      redis_cluster_data_dir:
+        type: str
+        required: false
+        default: /var/lib/redis
+        description: Directory for Redis data files (RDB snapshots, AOF).
+      redis_cluster_pid_dir:
+        type: str
+        required: false
+        default: /var/run/redis
+        description: Directory for the Redis PID file.
+      redis_cluster_myapp_version:
+        type: str
+        required: false
+        default: 2.1.0
+        description: Version of the myapp companion artifact to deploy.
+      redis_cluster_myapp_url:
+        type: str
+        required: false
+        default: http://artifacts.internal/myapp-2.1.0.tar.gz
+        description: URL from which to download the myapp artifact tarball.
+      redis_cluster_myapp_install_dir:
+        type: str
+        required: false
+        default: /opt/myapp
+        description: Directory into which the myapp artifact is extracted.
+      redis_cluster_company_app_conf:
+        type: str
+        required: false
+        default: /etc/company/app.conf
+        description: Absolute path to the proprietary CompanyApp settings file.
+      redis_cluster_health_check_url:
+        type: str
+        required: false
+        default: http://localhost:8080/health
+        description: URL of the local health check endpoint to fetch.
+      redis_cluster_health_check_dest:
+        type: str
+        required: false
+        default: /var/lib/redis/health_check.json
+        description: Destination path for the health check JSON output file.
+      redis_cluster_case3_secure_logging:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          When true, suppresses task output for tasks that handle secret credentials
+          (redis_password). Set to false only for debugging.
+      redis_password:
+        type: str
+        required: true
+        description: >-
+          Redis AUTH password (requirepass). Injected at runtime by the AAP credential type.
+          Must not be stored in plaintext — use an AAP credential or Ansible Vault.
+      redis_service_token:
+        type: str
+        required: true
+        description: >-
+          Service token for the Enterprise Scheduler registration. Injected at runtime
+          by the AAP credential type. Downstream usage requires developer investigation
+          (see tasks/scheduler_registration.yml).
+      secret_store_endpoint:
+        type: str
+        required: true
+        description: >-
+          Endpoint URL for the CompanyInternal SecretStore. Injected at runtime by the
+          AAP credential type.
+      secret_store_api_token:
+        type: str
+        required: true
+        description: >-
+          API token for the CompanyInternal SecretStore. Injected at runtime by the
+          AAP credential type. Sensitive — handled with no_log where applicable.

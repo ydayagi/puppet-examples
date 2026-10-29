@@ -1,0 +1,8 @@
+---
+- name: Converge # noqa: R401 - audit/reporting rule only; inbound transfers are intentional and occur inside the included role, not in this converge play
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Include profile_redis_cluster_case3
+      ansible.builtin.include_role: # noqa: L038 - role-under-test resolves at runtime; unresolved only when scanned in isolation
+        name: profile_redis_cluster_case3

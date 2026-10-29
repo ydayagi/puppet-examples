@@ -1,0 +1,31 @@
+---
+# Detect the Redis role (primary or replica) for this node.
+# Equivalent of the custom Facter fact lib/facter/redis_role.rb.
+# The fact returns 'replica' if /etc/redis/conf.d/replica.conf exists and contains 'replicaof',
+# otherwise returns 'primary'.
+
+- name: Check if replica config file exists
+  ansible.builtin.stat:
+    path: "{{ profile_redis_cluster_case2_replica_conf }}" # noqa: R114 - path from role-defined variable, not user input
+  register: _redis_replica_conf_stat
+
+- name: Read replica config file contents
+  ansible.builtin.slurp:
+    src: "{{ profile_redis_cluster_case2_replica_conf }}" # noqa: R114 - path from role-defined variable, not user input
+  when: _redis_replica_conf_stat.stat.exists # noqa: L039 - _redis_replica_conf_stat registered by prior task in this file
+  register: _redis_replica_conf_content
+
+- name: Set redis_role fact to replica
+  ansible.builtin.set_fact:
+    redis_role: replica
+  when:
+    - _redis_replica_conf_stat.stat.exists # noqa: L039 - _redis_replica_conf_stat registered by prior task in this file
+    - (_redis_replica_conf_content.content | b64decode) is search('replicaof') # noqa: L039 - _redis_replica_conf_content registered by prior task in this file
+
+- name: Set redis_role fact to primary
+  ansible.builtin.set_fact:
+    redis_role: primary
+  when: >-
+    not _redis_replica_conf_stat.stat.exists or
+    not ((_redis_replica_conf_content.content | default('') | b64decode) is search('replicaof'))
+  # noqa: L039 - _redis_replica_conf_content and _redis_replica_conf_stat registered by prior tasks in this file

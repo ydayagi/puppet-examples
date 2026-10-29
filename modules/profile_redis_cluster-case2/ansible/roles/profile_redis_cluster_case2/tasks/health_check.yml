@@ -1,0 +1,20 @@
+---
+# Equivalent of myFunction1('http://localhost:8080/health'):
+# Performs an HTTP GET to the health endpoint and writes the JSON response to disk.
+
+- name: Fetch health check JSON from local endpoint
+  ansible.builtin.uri:
+    url: "{{ profile_redis_cluster_case2_health_check_url }}"
+    method: GET
+    return_content: true
+    status_code: 200
+  register: _health_check_response
+
+- name: Write health check JSON to disk # noqa: M005 - _health_check_response is a registered result from the prior uri task; content is trusted role output written to disk # noqa: L071 - content uses registered variable result; copy is intentional, no .j2 template source exists
+  ansible.builtin.copy:
+    content: "{{ _health_check_response.json | to_nice_json }}"
+    dest: "{{ profile_redis_cluster_case2_health_check_dest }}" # noqa: R114 - path from role-defined variable, not user input
+    owner: redis
+    group: redis
+    mode: "0644"
+    backup: true

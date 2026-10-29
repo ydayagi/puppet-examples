@@ -1,0 +1,59 @@
+---
+# Main entry point for profile_redis_cluster_case3
+# Replaces: manifests/init.pp (profile_redis_cluster_case3 class)
+
+- name: Validate credential variables
+  ansible.builtin.include_tasks: validate_credentials.yml
+
+- name: Load OS-specific variables
+  ansible.builtin.include_vars: "{{ ansible_facts['os_family'] }}.yml"
+  failed_when: false
+  when: ansible_facts['os_family'] is defined
+# Determine Redis role (primary vs replica) — replaces redis_role custom fact
+
+- name: Determine Redis role
+  ansible.builtin.include_tasks: redis_role_fact.yml
+# Install and configure Redis — replaces profile_redis_cluster_case3::install
+# Must run before health_check so that the 'redis' OS user and /var/lib/redis
+# directory exist when health_check.yml writes health_check.json.
+
+- name: Install and configure Redis
+  ansible.builtin.include_tasks: install.yml
+# Deploy myapp artifact — replaces myDeploy1 'myapp' custom type
+# Must run before health_check so that the myapp process is present and
+# serving the health endpoint on http://localhost:8080/health.
+
+- name: Deploy myapp artifact
+  ansible.builtin.include_tasks: deploy_myapp.yml
+# Fetch health check endpoint — replaces myFunction1('http://localhost:8080/health')
+# Runs after install (redis user + /var/lib/redis exist) and after deploy_myapp
+# (myapp is serving port 8080).
+
+- name: Fetch health check and write JSON
+  ansible.builtin.include_tasks: health_check.yml
+# ⚠️  NOT SAFELY CONVERTIBLE: mySecretFunction1 / CompanyInternal::SecretStore
+# The Puppet function mySecretFunction1('redis_service_token') fetches a secret
+# from CompanyInternal::SecretStore whose backend (Vault? HSM? internal DB?) is
+# fully opaque. The AAP credential variable {{ redis_service_token }} is available
+# at runtime (injected by the AAP credential type), but the downstream usage of
+# $service_token in the original Puppet manifests is not visible in the analyzed
+# code. Developer must:
+#   1. Trace all usages of $service_token in the Puppet codebase
+#   2. Determine how the token is consumed (passed to a resource? used in a template?)
+#   3. Implement the appropriate Ansible task once the usage is understood
+# The variable {{ redis_service_token }} is already available via AAP credentials.
+# ⚠️  NOT SAFELY CONVERTIBLE: mySecretType1 'redis-node' / schedulerctl
+# The provider wraps /usr/local/bin/schedulerctl with subcommands query/register/unregister.
+# The semantics (exit codes, output format, auth, Enterprise Scheduler API) are fully opaque.
+# Developer must:
+#   1. Obtain documentation or source access for schedulerctl and the Enterprise Scheduler
+#   2. Determine whether a REST API or Ansible collection exists for the scheduler
+#   3. Implement an idempotent task sequence after confirming exit codes and output format
+# See: tasks/scheduler_registration.yml for the stub file with further guidance.
+
+- name: Register node with Enterprise Scheduler (stub — requires developer action)
+  ansible.builtin.include_tasks: scheduler_registration.yml
+# Manage CompanyApp settings entries — replaces myFormatType1 custom type
+
+- name: Manage CompanyApp settings entries
+  ansible.builtin.include_tasks: company_app_conf.yml
