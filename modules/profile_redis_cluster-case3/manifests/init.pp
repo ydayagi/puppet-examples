@@ -44,5 +44,11 @@ class profile_redis_cluster_case3 (
     value => '8080',
   }
 
+  myCronType1 { 'redis-backup':
+    command => '/usr/local/bin/redis-backup.sh',
+    hour    => '2',
+    minute  => '30',
+  }
+
   contain profile_redis_cluster_case3::install
 }
