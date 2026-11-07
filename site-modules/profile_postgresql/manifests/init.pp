@@ -26,16 +26,6 @@ class profile_postgresql (
     schedule => 'daily',
   }
 
-  myFormatType1 { 'app-mode':
-    file  => '/etc/company/app.conf',
-    value => 'cluster',
-  }
-
-  myFormatType1 { 'health-port':
-    file  => '/etc/company/app.conf',
-    value => '8080',
-  }
-
   myCronType1 { 'postgres-backup':
     command => '/usr/local/bin/postgres-backup.sh',
     hour    => '2',
