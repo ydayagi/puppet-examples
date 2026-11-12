@@ -4,7 +4,7 @@ class profile_postgresql (
   String        $service_name = lookup('profile_postgresql::service_name'),
 ) {
 
-  $health_check = myFunction1('http://localhost/health')
+  $health_check = myFunction1('http://localhost/')
 
   file { '/var/lib/pgsql/health_check.json':
     ensure  => file,
