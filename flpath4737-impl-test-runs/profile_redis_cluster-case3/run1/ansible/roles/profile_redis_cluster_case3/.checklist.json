@@ -1,0 +1,173 @@
+{
+  "module_name": "profile_redis_cluster_case3",
+  "items": [
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/aap-configuration/controller_credential_types.yml",
+      "status": "complete",
+      "description": "AAP credential types configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/aap-configuration/controller_credentials.yml",
+      "status": "complete",
+      "description": "AAP credentials configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/validate_credentials.yml",
+      "status": "complete",
+      "description": "Credential validation tasks",
+      "notes": ""
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/meta/main.yml",
+      "status": "complete",
+      "description": "Role metadata (dependencies, author, platforms)",
+      "notes": "Created standard meta/main.yml"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/handlers/main.yml",
+      "status": "complete",
+      "description": "Role handlers for service restarts (redis, chronyd, rsyslog)",
+      "notes": "Created handlers for redis, chronyd, and rsyslog service restarts."
+    },
+    {
+      "category": "attributes",
+      "source_path": "../../site/modules/common/base_utils/data/common.yaml",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/defaults/main.yml",
+      "status": "complete",
+      "description": "Role defaults from Puppet manifest defaults and Hiera common data: redis_port, redis_password (CHANGEME \u2014 must be replaced), maxmemory_mb, maxmemory_policy, manage_motd, motd_template, utility_packages, manage_ntp, manage_syslog, manage_utils",
+      "notes": "Merged variables from base_utils/data/common.yaml, profile_redis_cluster manifest defaults, and profile::base::base manifest defaults. redis_password not set here \u2014 injected via AAP credential."
+    },
+    {
+      "category": "attributes",
+      "source_path": "../../site/modules/common/base_utils/data/os/Debian.yaml",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/vars/Debian.yml",
+      "status": "complete",
+      "description": "OS-family variable overrides for Debian: utility_packages list (vim, wget, curl, jq, dnsutils)",
+      "notes": "OS-specific utility packages for Debian family."
+    },
+    {
+      "category": "attributes",
+      "source_path": "../../site/modules/common/base_utils/data/os/RedHat.yaml",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/vars/RedHat.yml",
+      "status": "complete",
+      "description": "OS-family variable overrides for RedHat: utility_packages list (vim-enhanced, wget, curl, jq, bind-utils)",
+      "notes": "OS-specific utility packages for RedHat family."
+    },
+    {
+      "category": "structure",
+      "source_path": "../../site/modules/common/base_utils/data/common.yaml",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/meta/argument_specs.yml",
+      "status": "complete",
+      "description": "Role argument specs for fail-fast parameter validation \u2014 generate after defaults/main.yml is written",
+      "notes": "Covers all role parameters including AAP credential variables redis_password and redis_service_token."
+    },
+    {
+      "category": "templates",
+      "source_path": "../../site/modules/common/base_utils/templates/motd.erb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/templates/motd.j2",
+      "status": "complete",
+      "description": "MOTD template rendered to /etc/motd \u2014 convert ERB to Jinja2",
+      "notes": "Converted ERB variables to Jinja2: ansible_fqdn, ansible_distribution, ansible_distribution_version, ansible_kernel, ansible_uptime_seconds"
+    },
+    {
+      "category": "recipes",
+      "source_path": "../../site/role/manifests/redis_cluster.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/main.yml",
+      "status": "complete",
+      "description": "Main tasks entry point \u2014 orchestrates base profile (chrony, rsyslog, utils, motd) then Redis cluster setup; replaces role::redis_cluster ordering logic",
+      "notes": "Orchestrates base.yml then cache_redis.yml, with validate_credentials.yml first."
+    },
+    {
+      "category": "recipes",
+      "source_path": "../../site/profile/manifests/base/base.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/base.yml",
+      "status": "complete",
+      "description": "Base OS profile tasks: install chrony + chronyd service, install rsyslog + rsyslog service, conditionally gated on manage_ntp and manage_syslog variables",
+      "notes": "Loads OS vars, applies base_utils, installs chrony and rsyslog conditionally."
+    },
+    {
+      "category": "recipes",
+      "source_path": "../../site/modules/common/base_utils/manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/base_utils.yml",
+      "status": "complete",
+      "description": "Base utilities tasks: install OS-family-specific utility packages (vim/vim-enhanced, wget, curl, jq, dnsutils/bind-utils) and render /etc/motd from motd.j2 template; conditionally gated on manage_utils and manage_motd",
+      "notes": "Deploys MOTD template and installs utility packages. OS vars loaded by base.yml before this is called."
+    },
+    {
+      "category": "recipes",
+      "source_path": "../../site/modules/linux/profile_redis_cluster/manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/profile_redis_cluster.yml",
+      "status": "complete",
+      "description": "Redis cluster main tasks: inline redis_role fact logic (stat replica.conf), health-check via ansible.builtin.uri, write health_check.json, myapp artifact deployment (stat version.txt, get_url, unarchive, copy version), Enterprise Scheduler registration (blocked \u2014 see mySecretType1 conversion note), mySecretFunction1 (NOT SAFELY CONVERTIBLE \u2014 developer review required)",
+      "notes": "Fixed: moved include_tasks: install.yml to the top of the file so the redis OS user/group exists before health-check directory and file tasks reference owner:redis/group:redis."
+    },
+    {
+      "category": "recipes",
+      "source_path": "../../site/modules/linux/profile_redis_cluster/manifests/install.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/install.yml",
+      "status": "complete",
+      "description": "Redis install tasks: install redis package, configure redis (bind 0.0.0.0, port 6379, requirepass from vault secret, maxmemory 2048mb, allkeys-lru, AOF appendonly/everysec), ensure /var/log/redis directory (owner redis, group redis, mode 0755), start+enable redis service",
+      "notes": "Fixed: added explicit 'Ensure Redis configuration directory exists' task (ansible.builtin.file, state: directory, /etc/redis) between the log dir task and the template task. The redis package does not guarantee /etc/redis/ creation on all distros."
+    },
+    {
+      "category": "recipes",
+      "source_path": "../../site/profile/manifests/cache/redis.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/cache_redis.yml",
+      "status": "complete",
+      "description": "Redis cache profile wrapper tasks \u2014 sets environment_name fact and includes profile_redis_cluster tasks",
+      "notes": "Thin wrapper delegating to profile_redis_cluster.yml."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/molecule.yml",
+      "status": "complete",
+      "description": "Molecule scenario configuration \u2014 delegated driver, local connection (not docker/podman)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/converge.yml",
+      "status": "complete",
+      "description": "Molecule converge playbook \u2014 runs the role via a single ansible.builtin.include_role task",
+      "notes": "Includes role via ansible.builtin.include_role with stub credential vars (redis_password, redis_service_token) required by validate_credentials.yml."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/verify.yml",
+      "status": "complete",
+      "description": "Molecule verify playbook \u2014 checks /etc/motd, /var/lib/redis/health_check.json, /var/log/redis (dir, owner redis, mode 0755), /opt/myapp/version.txt (contains 2.1.0), redis service running, chronyd running, rsyslog running",
+      "notes": "Split into 3 plays: (1) filesystem state \u2014 /etc/motd, /var/log/redis, /var/lib/redis/health_check.json, /etc/redis/redis.conf, /opt/myapp/version.txt; (2) services \u2014 chronyd, rsyslog, redis; (3) Redis port 6379 and redis.conf content assertions."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/create.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance create playbook (delegated driver)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/destroy.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance destroy playbook (delegated driver)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    }
+  ]
+}

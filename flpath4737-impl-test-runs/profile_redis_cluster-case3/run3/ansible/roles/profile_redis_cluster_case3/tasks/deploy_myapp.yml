@@ -1,0 +1,66 @@
+---
+# Converted from: ../../site/modules/linux/profile_redis_cluster/lib/puppet/provider/myDeploy1/myDeployProvider.rb
+# Deploys the myapp application artifact to /opt/myapp, tracking the installed version.
+# Idempotency: checks version.txt before downloading/extracting.
+
+- name: Check if myapp version.txt exists
+  ansible.builtin.stat:
+    path: "{{ profile_redis_cluster_case3_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+  register: profile_redis_cluster_case3_myapp_version_stat
+
+- name: Read current myapp version # noqa: L039 - profile_redis_cluster_case3_myapp_version_stat registered by prior task
+  ansible.builtin.slurp:
+    src: "{{ profile_redis_cluster_case3_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+  when: profile_redis_cluster_case3_myapp_version_stat.stat.exists
+  register: profile_redis_cluster_case3_myapp_version_content
+
+- name: Set myapp current version fact # noqa: M005 - registered variable used in set_fact; content is from a trusted local file read # noqa: L039 - profile_redis_cluster_case3_myapp_version_content and profile_redis_cluster_case3_myapp_version_stat registered by prior tasks
+  ansible.builtin.set_fact:
+    profile_redis_cluster_case3_myapp_current_version: >-
+      {{ profile_redis_cluster_case3_myapp_version_content['content'] | b64decode | trim }}
+  when: profile_redis_cluster_case3_myapp_version_stat.stat.exists
+
+- name: Set myapp current version fact to empty when not installed # noqa: L039 - profile_redis_cluster_case3_myapp_version_stat registered by prior task
+  ansible.builtin.set_fact:
+    profile_redis_cluster_case3_myapp_current_version: ""
+  when: not profile_redis_cluster_case3_myapp_version_stat.stat.exists
+
+- name: Ensure myapp install directory exists # noqa: L039 - profile_redis_cluster_case3_myapp_current_version set by prior set_fact task
+  ansible.builtin.file:
+    path: "{{ profile_redis_cluster_case3_myapp_install_dir }}" # noqa: R114 - path from role-defined variable, not user input
+    state: directory
+    mode: "0755"
+  when: >-
+    profile_redis_cluster_case3_myapp_current_version != profile_redis_cluster_case3_myapp_version
+
+- name: Download myapp artifact tarball # noqa: L039 - profile_redis_cluster_case3_myapp_current_version set by prior set_fact task # noqa: R104 - URL scheme controlled by role variable profile_redis_cluster_case3_myapp_url # noqa: R106 - URL sourced from role defaults, not external input
+  ansible.builtin.get_url:
+    url: "{{ profile_redis_cluster_case3_myapp_url }}"
+    dest: /tmp/myapp-{{ profile_redis_cluster_case3_myapp_version }}.tar.gz
+    mode: "0644"
+  when: >-
+    profile_redis_cluster_case3_myapp_current_version != profile_redis_cluster_case3_myapp_version
+
+- name: Extract myapp artifact to install directory # noqa: L039 - profile_redis_cluster_case3_myapp_current_version set by prior set_fact task # noqa: R104 - URL scheme controlled by role variable profile_redis_cluster_case3_myapp_url # noqa: R106 - URL sourced from role defaults, not external input # noqa: L021 - unarchive dest mode managed by archive contents
+  ansible.builtin.unarchive:
+    src: /tmp/myapp-{{ profile_redis_cluster_case3_myapp_version }}.tar.gz
+    dest: "{{ profile_redis_cluster_case3_myapp_install_dir }}" # noqa: R114 - path from role-defined variable, not user input
+    remote_src: true
+  when: >-
+    profile_redis_cluster_case3_myapp_current_version != profile_redis_cluster_case3_myapp_version
+
+- name: Write myapp version.txt # noqa: L039 - profile_redis_cluster_case3_myapp_current_version set by prior set_fact task # noqa: L071 - copy with Jinja content is intentional; no template file needed for single-line version string
+  ansible.builtin.copy:
+    content: "{{ profile_redis_cluster_case3_myapp_version }}"
+    dest: "{{ profile_redis_cluster_case3_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+    mode: "0644"
+    backup: true
+  when: >-
+    profile_redis_cluster_case3_myapp_current_version != profile_redis_cluster_case3_myapp_version
+
+- name: Clean up downloaded myapp tarball # noqa: R114 - path uses role-defined version variable, not user input # noqa: R115 - deletion path uses role-defined version variable, not user input # noqa: L039 - profile_redis_cluster_case3_myapp_current_version set by prior set_fact task # noqa: L021 - mode is not applicable for state: absent
+  ansible.builtin.file:
+    path: /tmp/myapp-{{ profile_redis_cluster_case3_myapp_version }}.tar.gz
+    state: absent
+  when: >-
+    profile_redis_cluster_case3_myapp_current_version != profile_redis_cluster_case3_myapp_version

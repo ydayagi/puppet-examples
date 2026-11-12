@@ -1,0 +1,109 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure a Redis cluster node with companion services
+    description:
+      - Installs and configures a Redis cluster node on Linux.
+      - Manages base OS services (NTP via chrony, syslog via rsyslog).
+      - Deploys the myapp companion application artifact.
+      - Writes a health check JSON file from the myapp health endpoint.
+      - Determines the Redis node role (primary or replica) via replica.conf inspection.
+      - Registers the node with an Enterprise Scheduler platform (requires manual review).
+    options:
+      profile_redis_cluster_case3_redis_port:
+        type: int
+        required: false
+        default: 6379
+        description: TCP port Redis listens on.
+      profile_redis_cluster_case3_redis_bind:
+        type: str
+        required: false
+        default: 0.0.0.0
+        description: IP address Redis binds to.
+      profile_redis_cluster_case3_maxmemory_mb:
+        type: int
+        required: false
+        default: 2048
+        description: Maximum memory Redis may use, in megabytes.
+      profile_redis_cluster_case3_maxmemory_policy:
+        type: str
+        required: false
+        default: allkeys-lru
+        description: Redis eviction policy when maxmemory is reached.
+      profile_redis_cluster_case3_appendonly:
+        type: bool
+        required: false
+        default: true
+        description: Whether to enable Redis append-only file persistence.
+      profile_redis_cluster_case3_appendfsync:
+        type: str
+        required: false
+        default: everysec
+        description: >-
+          Redis appendfsync mode. Valid values: always, everysec, no.
+      profile_redis_cluster_case3_myapp_version:
+        type: str
+        required: false
+        default: 2.1.0
+        description: Version of the myapp companion application to deploy.
+      profile_redis_cluster_case3_myapp_url:
+        type: str
+        required: false
+        default: http://artifacts.internal/myapp-2.1.0.tar.gz
+        description: URL to download the myapp artifact tarball from.
+      profile_redis_cluster_case3_myapp_install_dir:
+        type: str
+        required: false
+        default: /opt/myapp
+        description: Directory where myapp is installed.
+      profile_redis_cluster_case3_health_check_url:
+        type: str
+        required: false
+        default: http://localhost:8080/health
+        description: URL of the myapp health check endpoint.
+      profile_redis_cluster_case3_health_check_dest:
+        type: str
+        required: false
+        default: /var/lib/redis/health_check.json
+        description: Destination path for the health check JSON result file.
+      profile_redis_cluster_case3_log_dir:
+        type: str
+        required: false
+        default: /var/log/redis
+        description: Directory for Redis log files.
+      profile_redis_cluster_case3_manage_ntp:
+        type: bool
+        required: false
+        default: true
+        description: Whether to install and start chrony (NTP daemon).
+      profile_redis_cluster_case3_manage_syslog:
+        type: bool
+        required: false
+        default: true
+        description: Whether to install and start rsyslog (syslog daemon).
+      profile_redis_cluster_case3_manage_utils:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          Whether to include base utility packages (base_utils class equivalent).
+          Currently a no-op placeholder — the base_utils class was not analyzed.
+      profile_redis_cluster_case3_secure_logging:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          When true, suppresses task output for tasks that handle secrets
+          (redis_password, redis_service_token). Set to false only for debugging.
+      redis_password:
+        type: str
+        required: true
+        description: >-
+          Redis authentication password. Injected at runtime by the AAP
+          'Redis Cluster Credentials' credential type. NEVER hardcode this value.
+      redis_service_token:
+        type: str
+        required: true
+        description: >-
+          Service token for the Enterprise Scheduler platform. Injected at runtime
+          by the AAP 'Redis Cluster Credentials' credential type.

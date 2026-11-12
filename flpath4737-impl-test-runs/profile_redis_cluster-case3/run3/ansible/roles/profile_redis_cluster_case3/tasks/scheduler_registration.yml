@@ -1,0 +1,68 @@
+---
+# ============================================================================
+# NOT SAFELY CONVERTIBLE — MANUAL DEVELOPER ACTION REQUIRED
+# ============================================================================
+# Source: ../../site/modules/linux/profile_redis_cluster/lib/puppet/provider/mySecretType1/mySecretProvider1.rb
+#
+# This task file corresponds to the mySecretType1 / mySecretProvider1 Puppet
+# custom type and provider, which registers a node in a proprietary Enterprise
+# Scheduler platform via the `schedulerctl` CLI tool.
+#
+# WHY IT CANNOT BE AUTOMATICALLY CONVERTED:
+#   - The `schedulerctl` CLI (/usr/local/bin/schedulerctl) is proprietary and
+#     its exit codes, output format, error conditions, and side effects are
+#     completely undocumented in the available source.
+#   - The commands used are:
+#       schedulerctl query <name>           (check if registered)
+#       schedulerctl register --schedule <schedule> <name>  (register)
+#       schedulerctl unregister <name>      (deregister)
+#   - Without knowing the exit codes for "already registered" vs "not found"
+#     vs "error", it is impossible to write an idempotent Ansible task.
+#
+# WHAT THE DEVELOPER MUST DO:
+#   1. Locate and review the schedulerctl documentation or source code.
+#   2. Determine the exit codes for each subcommand.
+#   3. Implement an idempotent task using ansible.builtin.command with
+#      appropriate `changed_when` and `failed_when` conditions.
+#   4. The `redis_service_token` AAP credential variable (injected at runtime)
+#      may be required for authentication — confirm with the schedulerctl docs.
+#
+# PUPPET ORIGINAL:
+#   mySecretType1 { 'redis-node':
+#     schedule => 'daily',
+#   }
+#
+# INTENDED ANSIBLE EQUIVALENT (skeleton — fill in correct exit codes):
+#
+# - name: Check if redis-node is registered in Enterprise Scheduler
+#   ansible.builtin.command:
+#     argv:
+#       - /usr/local/bin/schedulerctl
+#       - query
+#       - redis-node
+#   register: profile_redis_cluster_case3_scheduler_query
+#   changed_when: false
+#   failed_when: false  # Replace with correct exit code check
+#   no_log: "{{ profile_redis_cluster_case3_secure_logging }}"
+#
+# - name: Register redis-node in Enterprise Scheduler
+#   ansible.builtin.command:
+#     argv:
+#       - /usr/local/bin/schedulerctl
+#       - register
+#       - --schedule
+#       - daily
+#       - redis-node
+#   when: profile_redis_cluster_case3_scheduler_query.rc != 0  # Replace with correct condition
+#   changed_when: true
+#   no_log: "{{ profile_redis_cluster_case3_secure_logging }}"
+# ============================================================================
+
+- name: Warn that Enterprise Scheduler registration requires manual implementation
+  ansible.builtin.debug:
+    msg: >-
+      MANUAL ACTION REQUIRED: Enterprise Scheduler registration for 'redis-node'
+      (schedule: daily) via schedulerctl is NOT SAFELY CONVERTIBLE. Review
+      schedulerctl documentation and implement idempotent tasks in
+      tasks/scheduler_registration.yml before deploying this role.
+    verbosity: 2

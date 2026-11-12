@@ -1,0 +1,157 @@
+{
+  "module_name": "profile_redis_cluster_case3",
+  "items": [
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/aap-configuration/controller_credential_types.yml",
+      "status": "complete",
+      "description": "AAP credential types configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/aap-configuration/controller_credentials.yml",
+      "status": "complete",
+      "description": "AAP credentials configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/validate_credentials.yml",
+      "status": "complete",
+      "description": "Credential validation tasks",
+      "notes": ""
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/meta/main.yml",
+      "status": "complete",
+      "description": "Role metadata file",
+      "notes": "Created standard meta/main.yml"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/handlers/main.yml",
+      "status": "complete",
+      "description": "Role handlers (e.g., restart redis, restart chronyd, restart rsyslog)",
+      "notes": "Created handlers for chronyd, rsyslog, and redis service restarts."
+    },
+    {
+      "category": "structure",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/defaults/main.yml",
+      "status": "complete",
+      "description": "Role default variables: redis_port, redis_password (vault), maxmemory_mb, maxmemory_policy, manage_ntp, manage_syslog, manage_utils",
+      "notes": "Created defaults/main.yml with all role variables: Redis config, myapp deployment, health check, base OS toggles, and secure_logging toggle."
+    },
+    {
+      "category": "structure",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/meta/argument_specs.yml",
+      "status": "complete",
+      "description": "Role argument specs for fail-fast parameter validation (generate after defaults/main.yml)",
+      "notes": "Created meta/argument_specs.yml documenting all role parameters including AAP credential variables."
+    },
+    {
+      "category": "recipes",
+      "source_path": "../../site/role/manifests/redis_cluster.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/main.yml",
+      "status": "complete",
+      "description": "Main tasks entry point \u2014 orchestrates base OS setup (NTP, syslog, utils) and Redis cluster configuration",
+      "notes": "Converted role::redis_cluster to tasks/main.yml. Validates credentials first, then applies base OS profile and Redis cluster profile in order, gated on Linux kernel fact."
+    },
+    {
+      "category": "recipes",
+      "source_path": "../../site/profile/manifests/base/base.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/base.yml",
+      "status": "complete",
+      "description": "Base OS profile tasks: install and enable chrony (NTP) and rsyslog (syslog), include base_utils packages",
+      "notes": "Converted profile::base::base to tasks/base.yml. Installs chrony, rsyslog, and utility packages with toggle variables."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/redis_cluster.yml",
+      "status": "complete",
+      "description": "Redis cluster init tasks: health-check URI call, write health_check.json, myapp deployment (myDeploy1 \u2192 get_url/unarchive/copy), mySecretType1 scheduler registration (NOT SAFELY CONVERTIBLE \u2014 stub/placeholder), redis_role fact detection",
+      "notes": "Moved include_tasks: install.yml to the top of redis_cluster.yml so the redis package (and its system user/group) is installed before any task references owner: redis or writes to /var/lib/redis"
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/install.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/install.yml",
+      "status": "complete",
+      "description": "Redis install tasks: install redis package, configure redis (bind, port, requirepass, maxmemory, appendonly, appendfsync), manage redis service, ensure /var/log/redis directory",
+      "notes": "Converted install.pp to tasks/install.yml. Installs redis package, deploys redis.conf.j2 template with no_log for password, ensures log dir, enables service."
+    },
+    {
+      "category": "recipes",
+      "source_path": "../../site/modules/linux/profile_redis_cluster/lib/puppet/provider/myDeploy1/myDeployProvider.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/deploy_myapp.yml",
+      "status": "complete",
+      "description": "myapp artifact deployment tasks: stat/slurp version.txt idempotency gate, get_url download tarball, file ensure directory, unarchive extract, copy write version.txt",
+      "notes": "Converted myDeployProvider.rb to tasks/deploy_myapp.yml. Uses stat+slurp for idempotency check, get_url, unarchive, and copy for version.txt."
+    },
+    {
+      "category": "recipes",
+      "source_path": "lib/facter/redis_role.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/detect_redis_role.yml",
+      "status": "complete",
+      "description": "redis_role fact detection tasks: stat /etc/redis/conf.d/replica.conf, slurp content, set_fact redis_role as primary or replica",
+      "notes": "Converted redis_role.rb facter to tasks/detect_redis_role.yml. Uses stat+slurp to check /etc/redis/conf.d/replica.conf and set redis_role fact."
+    },
+    {
+      "category": "recipes",
+      "source_path": "../../site/modules/linux/profile_redis_cluster/lib/puppet/provider/mySecretType1/mySecretProvider1.rb",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/tasks/scheduler_registration.yml",
+      "status": "complete",
+      "description": "NOT SAFELY CONVERTIBLE: Enterprise Scheduler registration stub \u2014 schedulerctl register --schedule daily redis-node; requires schedulerctl CLI documentation before full implementation",
+      "notes": "NOT SAFELY CONVERTIBLE: Created stub task file with detailed developer notes explaining why schedulerctl cannot be automatically converted and what steps are needed. Includes a debug warning task."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/molecule.yml",
+      "status": "complete",
+      "description": "Molecule scenario configuration \u2014 delegated driver, local connection (not docker/podman)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/converge.yml",
+      "status": "complete",
+      "description": "Molecule converge playbook \u2014 runs the role via ansible.builtin.include_role",
+      "notes": "Generated converge.yml with single ansible.builtin.include_role task for profile_redis_cluster_case3."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/verify.yml",
+      "status": "complete",
+      "description": "Molecule verify playbook \u2014 checks /var/lib/redis/health_check.json (exists, owned redis:redis, mode 0644, valid JSON), /opt/myapp/version.txt (contains 2.1.0), /opt/myapp/ (directory exists), /var/log/redis (directory, owned redis:redis, mode 0755), redis port 6379 responds to PING, health endpoint returns JSON",
+      "notes": "Generated verify.yml split into two plays: (1) file/directory stat+assert checks for /var/log/redis, /var/lib/redis/health_check.json, /opt/myapp, /opt/myapp/version.txt, /etc/redis/redis.conf; (2) service_facts assertions for redis, chronyd, rsyslog and wait_for port 6379."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/create.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance create playbook",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case3/molecule/default/destroy.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance destroy playbook",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    }
+  ]
+}

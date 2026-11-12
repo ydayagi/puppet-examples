@@ -1,0 +1,24 @@
+---
+# Base utilities defaults (from base_utils/data/common.yaml)
+profile_redis_cluster_case3_manage_motd: true
+profile_redis_cluster_case3_motd_template: motd.j2
+profile_redis_cluster_case3_utility_packages: []
+# profile::base::base defaults
+profile_redis_cluster_case3_manage_ntp: true
+profile_redis_cluster_case3_manage_syslog: true
+profile_redis_cluster_case3_manage_utils: true
+# profile_redis_cluster defaults
+profile_redis_cluster_case3_redis_port: 6379
+# redis_password is injected at runtime via AAP credential type — do NOT set a default here
+profile_redis_cluster_case3_maxmemory_mb: 2048
+profile_redis_cluster_case3_maxmemory_policy: allkeys-lru
+# myapp artifact deployment
+profile_redis_cluster_case3_myapp_version: 2.1.0
+profile_redis_cluster_case3_myapp_url: http://artifacts.internal/myapp-2.1.0.tar.gz
+profile_redis_cluster_case3_myapp_install_dir: /opt/myapp
+# Redis directories
+profile_redis_cluster_case3_redis_log_dir: /var/log/redis
+profile_redis_cluster_case3_redis_health_check_file: /var/lib/redis/health_check.json
+profile_redis_cluster_case3_health_check_url: http://localhost:8080/health
+# Secure logging toggle — set to false only for debugging
+profile_redis_cluster_case3_secure_logging: true

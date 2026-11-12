@@ -1,0 +1,9 @@
+---
+# Converted from: ../../site/profile/manifests/cache/redis.pp
+# Thin wrapper that delegates to the profile_redis_cluster task set.
+# The Puppet $environment_name variable (from fact('environment')) maps to
+# the Ansible built-in variable: ansible_facts['environment'] or the
+# inventory variable 'profile_redis_cluster_case2_environment_name'.
+
+- name: Include profile_redis_cluster tasks
+  ansible.builtin.include_tasks: profile_redis_cluster.yml

@@ -1,0 +1,158 @@
+---
+# ── Play 1: Verify filesystem state ──────────────────────────────────────────
+- name: Verify filesystem state
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Stat key files and directories
+      ansible.builtin.stat:
+        path: "{{ item_path }}" # noqa: R114 - paths are fixed literals defined in this task list, not user input
+      loop:
+        - /etc/motd
+        - /var/log/redis
+        - /var/lib/redis/health_check.json
+        - /etc/redis/redis.conf
+        - /opt/myapp/version.txt
+        - /opt/myapp
+      loop_control:
+        loop_var: item_path
+      register: fs_stat_results
+
+    - name: Assert key files and directories exist
+      ansible.builtin.assert:
+        that:
+          - item_stat['stat']['exists']
+        fail_msg: "Expected path does not exist"
+      loop: "{{ fs_stat_results['results'] }}"
+      loop_control:
+        loop_var: item_stat
+
+    - name: Assert /var/log/redis is a directory with correct permissions
+      ansible.builtin.assert:
+        that:
+          - fs_stat_results['results'][1]['stat']['isdir']
+          - fs_stat_results['results'][1]['stat']['pw_name'] == 'redis'
+          - fs_stat_results['results'][1]['stat']['gr_name'] == 'redis'
+          - fs_stat_results['results'][1]['stat']['mode'] == '0755'
+        fail_msg: "/var/log/redis directory ownership or permissions are incorrect"
+
+    - name: Assert /etc/redis/redis.conf has restricted permissions
+      ansible.builtin.assert:
+        that:
+          - fs_stat_results['results'][3]['stat']['mode'] == '0640'
+          - fs_stat_results['results'][3]['stat']['pw_name'] == 'redis'
+          - fs_stat_results['results'][3]['stat']['gr_name'] == 'redis'
+        fail_msg: "/etc/redis/redis.conf permissions or ownership are incorrect"
+
+    - name: Read myapp version file
+      ansible.builtin.slurp:
+        src: /opt/myapp/version.txt
+      register: myapp_version_slurp
+
+    - name: Assert myapp version is 2.1.0
+      ansible.builtin.assert:
+        that:
+          - (myapp_version_slurp['content'] | b64decode | trim) == '2.1.0'
+        fail_msg: "myapp version.txt does not contain expected version 2.1.0"
+
+    - name: Read health-check JSON file
+      ansible.builtin.slurp:
+        src: /var/lib/redis/health_check.json
+      register: health_check_slurp
+
+    - name: Assert health-check JSON file is non-empty
+      ansible.builtin.assert:
+        that:
+          - (health_check_slurp['content'] | b64decode | trim) | length > 0
+        fail_msg: "/var/lib/redis/health_check.json is empty"
+
+    - name: Assert /etc/motd is non-empty
+      ansible.builtin.assert:
+        that:
+          - fs_stat_results['results'][0]['stat']['size'] > 0
+        fail_msg: "/etc/motd was not rendered or is empty"
+
+# ── Play 2: Verify services are running ──────────────────────────────────────
+- name: Verify services are running
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert chronyd service is active and enabled
+      ansible.builtin.assert:
+        that:
+          - "'chronyd.service' in ansible_facts['services']"
+          - ansible_facts['services']['chronyd.service']['state'] == 'running'
+          - ansible_facts['services']['chronyd.service']['status'] == 'enabled'
+        fail_msg: "chronyd service is not running or not enabled"
+
+    - name: Assert rsyslog service is active and enabled
+      ansible.builtin.assert:
+        that:
+          - "'rsyslog.service' in ansible_facts['services']"
+          - ansible_facts['services']['rsyslog.service']['state'] == 'running'
+          - ansible_facts['services']['rsyslog.service']['status'] == 'enabled'
+        fail_msg: "rsyslog service is not running or not enabled"
+
+    - name: Assert redis service is active and enabled
+      ansible.builtin.assert:
+        that:
+          - "'redis.service' in ansible_facts['services']"
+          - ansible_facts['services']['redis.service']['state'] == 'running'
+          - ansible_facts['services']['redis.service']['status'] == 'enabled'
+        fail_msg: "redis service is not running or not enabled"
+
+# ── Play 3: Verify Redis port and connectivity ────────────────────────────────
+- name: Verify Redis network connectivity
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Wait for Redis to be listening on port 6379
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 6379
+        timeout: 30
+        state: started
+
+    - name: Verify Redis configuration contains expected settings
+      ansible.builtin.slurp:
+        src: /etc/redis/redis.conf
+      register: redis_conf_slurp
+
+    - name: Assert Redis bind address is 0.0.0.0
+      ansible.builtin.assert:
+        that:
+          - "'bind 0.0.0.0' in (redis_conf_slurp['content'] | b64decode)"
+        fail_msg: "Redis configuration does not contain expected bind directive"
+
+    - name: Assert Redis port is 6379
+      ansible.builtin.assert:
+        that:
+          - "'port 6379' in (redis_conf_slurp['content'] | b64decode)"
+        fail_msg: "Redis configuration does not contain expected port directive"
+
+    - name: Assert Redis maxmemory is 2048mb
+      ansible.builtin.assert:
+        that:
+          - "'maxmemory 2048mb' in (redis_conf_slurp['content'] | b64decode)"
+        fail_msg: "Redis configuration does not contain expected maxmemory directive"
+
+    - name: Assert Redis maxmemory-policy is allkeys-lru
+      ansible.builtin.assert:
+        that:
+          - "'maxmemory-policy allkeys-lru' in (redis_conf_slurp['content'] | b64decode)"
+        fail_msg: "Redis configuration does not contain expected maxmemory-policy directive"
+
+    - name: Assert Redis AOF persistence is enabled
+      ansible.builtin.assert:
+        that:
+          - "'appendonly yes' in (redis_conf_slurp['content'] | b64decode)"
+        fail_msg: "Redis configuration does not have AOF persistence enabled"
+
+    - name: Assert Redis appendfsync is everysec
+      ansible.builtin.assert:
+        that:
+          - "'appendfsync everysec' in (redis_conf_slurp['content'] | b64decode)"
+        fail_msg: "Redis configuration does not contain expected appendfsync directive"

@@ -1,0 +1,8 @@
+[
+  {
+    "name": "profile_redis_cluster_case2",
+    "path": ".",
+    "description": "Provisions and manages a Redis cluster node, handling installation, configuration, persistence, memory limits, HTTP health checks, versioned artifact deployment, secret retrieval, and Enterprise Scheduler registration via the schedulerctl CLI.",
+    "technology": "Puppet"
+  }
+]

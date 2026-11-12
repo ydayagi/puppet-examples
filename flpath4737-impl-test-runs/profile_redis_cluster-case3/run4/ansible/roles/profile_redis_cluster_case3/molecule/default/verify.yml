@@ -1,0 +1,141 @@
+---
+# Play 1: Verify filesystem state — directories, files, and their content
+- name: Verify filesystem state
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Stat filesystem paths
+      ansible.builtin.stat:
+        path: "{{ item_path }}" # noqa: R114 - paths are fixed literals from the role's production layout
+      loop:
+        - /var/log/redis
+        - /opt/myapp
+        - /opt/myapp/version.txt
+        - /var/lib/redis/health_check.json
+        - /etc/company/app.conf
+        - /usr/local/bin/redis-backup.sh
+        - /usr/local/bin/schedulerctl
+      loop_control:
+        loop_var: item_path
+      register: path_stat_results
+
+    - name: Assert all expected paths exist
+      ansible.builtin.assert:
+        that:
+          - item_stat['stat']['exists']
+        fail_msg: "Expected path does not exist"
+      loop: "{{ path_stat_results['results'] }}"
+      loop_control:
+        loop_var: item_stat
+
+    - name: Assert /var/log/redis is a directory with correct ownership and mode
+      ansible.builtin.assert:
+        that:
+          - path_stat_results['results'][0]['stat']['isdir']
+          - path_stat_results['results'][0]['stat']['pw_name'] == 'redis'
+          - path_stat_results['results'][0]['stat']['gr_name'] == 'redis'
+          - path_stat_results['results'][0]['stat']['mode'] == '0755'
+        fail_msg: "/var/log/redis directory ownership or mode is incorrect"
+
+    - name: Assert /opt/myapp is a directory
+      ansible.builtin.assert:
+        that:
+          - path_stat_results['results'][1]['stat']['isdir']
+        fail_msg: "/opt/myapp is not a directory"
+
+    - name: Assert /var/lib/redis/health_check.json has correct ownership and mode
+      ansible.builtin.assert:
+        that:
+          - path_stat_results['results'][3]['stat']['pw_name'] == 'redis'
+          - path_stat_results['results'][3]['stat']['gr_name'] == 'redis'
+          - path_stat_results['results'][3]['stat']['mode'] == '0644'
+        fail_msg: "/var/lib/redis/health_check.json ownership or mode is incorrect"
+
+    - name: Assert redis-backup.sh is executable
+      ansible.builtin.assert:
+        that:
+          - path_stat_results['results'][5]['stat']['executable']
+        fail_msg: "/usr/local/bin/redis-backup.sh is not executable"
+
+    - name: Assert schedulerctl is executable
+      ansible.builtin.assert:
+        that:
+          - path_stat_results['results'][6]['stat']['executable']
+        fail_msg: "/usr/local/bin/schedulerctl is not executable"
+
+    - name: Slurp file contents for content assertions
+      ansible.builtin.slurp:
+        src: "{{ item_slurp_path }}" # noqa: R114 - paths are fixed literals from the role's production layout
+      loop:
+        - /opt/myapp/version.txt
+        - /etc/company/app.conf
+        - /var/lib/redis/health_check.json
+      loop_control:
+        loop_var: item_slurp_path
+      register: slurp_results
+
+    - name: Assert /opt/myapp/version.txt contains 2.1.0
+      ansible.builtin.assert:
+        that:
+          - (slurp_results['results'][0]['content'] | b64decode | trim) == '2.1.0'
+        fail_msg: "/opt/myapp/version.txt does not contain expected version 2.1.0"
+
+    - name: Assert /etc/company/app.conf contains app-mode=cluster entry
+      ansible.builtin.assert:
+        that:
+          - slurp_results['results'][1]['content'] | b64decode is search('!app-mode=cluster')
+        fail_msg: "/etc/company/app.conf is missing the !app-mode=cluster entry"
+
+    - name: Assert /etc/company/app.conf contains health-port=8080 entry
+      ansible.builtin.assert:
+        that:
+          - slurp_results['results'][1]['content'] | b64decode is search('!health-port=8080')
+        fail_msg: "/etc/company/app.conf is missing the !health-port=8080 entry"
+
+    - name: Assert /var/lib/redis/health_check.json is non-empty
+      ansible.builtin.assert:
+        that:
+          - slurp_results['results'][2]['content'] | b64decode | trim | length > 0
+        fail_msg: "/var/lib/redis/health_check.json is empty"
+
+# Play 2: Verify Redis service, port, and cron job
+- name: Verify Redis service and cron
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Redis service is active and enabled
+      ansible.builtin.assert:
+        that:
+          - "'redis.service' in ansible_facts['services']"
+          - ansible_facts['services']['redis.service']['state'] == 'running'
+          - ansible_facts['services']['redis.service']['status'] == 'enabled'
+        fail_msg: "Redis service is not running or not enabled"
+
+    - name: Assert Redis is listening on port 6379
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 6379
+        timeout: 10
+        state: started
+        msg: "Redis is not listening on port 6379"
+
+    - name: Read root crontab
+      ansible.builtin.command:
+        argv:
+          - crontab
+          - -l
+          - -u
+          - root
+      register: root_crontab
+      changed_when: false
+      failed_when: root_crontab['rc'] not in [0, 1]
+
+    - name: Assert redis-backup cron entry is present
+      ansible.builtin.assert:
+        that:
+          - root_crontab['stdout'] is search('redis-backup\.sh')
+          - root_crontab['stdout'] is search('30\s+2\s+\*\s+\*\s+\*')
+        fail_msg: "redis-backup cron entry is missing or has incorrect schedule"

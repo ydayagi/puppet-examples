@@ -1,0 +1,8 @@
+[
+  {
+    "name": "profile_redis_cluster_case2",
+    "path": ".",
+    "description": "Redis cluster node profile that installs and configures a Redis server, performs cluster node discovery, runs HTTP health checks, deploys a versioned application artifact, retrieves secrets from a proprietary secret store, and registers the node with a proprietary Enterprise Scheduler platform.",
+    "technology": "Puppet"
+  }
+]

@@ -1,0 +1,8 @@
+---
+# tasks/service.yml — Ensure PostgreSQL service is running and enabled
+
+- name: Ensure PostgreSQL service is started and enabled
+  ansible.builtin.service:
+    name: "{{ profile_postgresql_service_name }}"
+    state: started
+    enabled: true

@@ -1,0 +1,174 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure a PostgreSQL database server
+    description:
+      - Configures the PostgreSQL APT repository, installs versioned PostgreSQL packages, ensures the service is running, deploys a versioned application 
+        artifact, performs a health check HTTP GET and writes the result to disk, and schedules a backup cron job.
+      - NOT-SAFELY-CONVERTIBLE components (mySecretType1, myFormatType1, mySecretFunction1) require manual implementation — see tasks/main.yml for details.
+    options:
+      profile_postgresql_version:
+        type: str
+        required: false
+        default: "16"
+        description: >-
+          PostgreSQL major version to install (e.g. '15', '16').
+          Used to construct package names and the APT repository release string.
+      profile_postgresql_package_names:
+        type: list
+        elements: str
+        required: false
+        default:
+          - postgresql-{{ profile_postgresql_version }}
+          - postgresql-contrib-{{ profile_postgresql_version }}
+        description: >-
+          List of PostgreSQL package names to install. Defaults to the versioned
+          postgresql and postgresql-contrib packages for the configured version.
+      profile_postgresql_extra_packages:
+        type: list
+        elements: str
+        required: false
+        default:
+          - libpq-dev
+        description: Additional packages to install alongside the PostgreSQL packages.
+      profile_postgresql_service_name:
+        type: str
+        required: false
+        default: postgresql
+        description: Name of the PostgreSQL system service.
+      profile_postgresql_repo_location:
+        type: str
+        required: false
+        default: https://apt.postgresql.org/pub/repos/apt
+        description: Base URL of the PostgreSQL APT repository.
+      profile_postgresql_repo_release:
+        type: str
+        required: false
+        default: "{{ ansible_facts['lsb']['codename'] }}-pgdg"
+        description: >-
+          APT repository release string (e.g. 'jammy-pgdg').
+          Defaults to the current OS codename with '-pgdg' suffix.
+      profile_postgresql_repo_key_id:
+        type: str
+        required: false
+        default: B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+        description: GPG key fingerprint for the PostgreSQL APT repository.
+      profile_postgresql_repo_key_source:
+        type: str
+        required: false
+        default: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        description: URL to download the PostgreSQL APT repository GPG key.
+      profile_postgresql_deploy_name:
+        type: str
+        required: false
+        default: myapp
+        description: Logical name of the application artifact to deploy.
+      profile_postgresql_deploy_version:
+        type: str
+        required: false
+        default: 2.1.0
+        description: >-
+          Target version of the application artifact. Idempotency is enforced
+          by comparing this value against the content of version.txt in the
+          install directory.
+      profile_postgresql_deploy_url:
+        type: str
+        required: false
+        default: http://artifacts.internal/myapp-2.1.0.tar.gz
+        description: URL to download the versioned application artifact tarball.
+      profile_postgresql_deploy_install_dir:
+        type: str
+        required: false
+        default: /opt/myapp
+        description: Filesystem path where the application artifact is extracted.
+      profile_postgresql_health_check_url:
+        type: str
+        required: false
+        default: http://localhost:8080/health
+        description: >-
+          HTTP endpoint to GET for the application health check.
+          The JSON response body is written to profile_postgresql_health_check_file.
+      profile_postgresql_health_check_file:
+        type: str
+        required: false
+        default: /var/lib/pgsql/health_check.json
+        description: >-
+          Filesystem path where the health check JSON response is written.
+      profile_postgresql_backup_command:
+        type: str
+        required: false
+        default: /usr/local/bin/postgres-backup.sh
+        description: Command executed by the PostgreSQL backup cron job.
+      profile_postgresql_backup_hour:
+        type: str
+        required: false
+        default: "2"
+        description: Hour at which the PostgreSQL backup cron job runs (0-23).
+      profile_postgresql_backup_minute:
+        type: str
+        required: false
+        default: "30"
+        description: Minute at which the PostgreSQL backup cron job runs (0-59).
+      profile_postgresql_secure_logging:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          When true, tasks that handle secret credential variables suppress their
+          output via no_log. Set to false only for debugging purposes.
+      # AAP credential variables — injected at runtime by the AAP credential type.
+      # These are NOT defined in defaults/main.yml; they must be provided via
+      # the attached AAP credential type.
+      secret_store_url:
+        type: str
+        required: true
+        description: >-
+          URL of the internal secret store. Injected by the AAP credential type.
+      secret_store_token:
+        type: str
+        required: true
+        description: >-
+          Authentication token for the internal secret store. Injected by the
+          AAP credential type. Sensitive — handled with no_log.
+      postgres_service_token:
+        type: str
+        required: true
+        description: >-
+          Service token for the Enterprise Scheduler registration of this
+          PostgreSQL node. Injected by the AAP credential type. Sensitive —
+          handled with no_log. Required for the NOT-SAFELY-CONVERTIBLE
+          mySecretType1 component (manual implementation needed).
+      db_host:
+        type: str
+        required: true
+        description: >-
+          Hostname or IP address of the PostgreSQL database server.
+          Injected by the AAP credential type.
+      db_port:
+        type: str
+        required: true
+        description: >-
+          TCP port of the PostgreSQL database server.
+          Injected by the AAP credential type.
+      db_name:
+        type: str
+        required: true
+        description: >-
+          Name of the PostgreSQL database. Injected by the AAP credential type.
+      db_user:
+        type: str
+        required: true
+        description: >-
+          PostgreSQL database username. Injected by the AAP credential type.
+      db_password:
+        type: str
+        required: true
+        description: >-
+          PostgreSQL database password. Injected by the AAP credential type.
+          Sensitive — handled with no_log.
+      secret_key:
+        type: str
+        required: true
+        description: >-
+          Application secret key. Injected by the AAP credential type.
+          Sensitive — handled with no_log.

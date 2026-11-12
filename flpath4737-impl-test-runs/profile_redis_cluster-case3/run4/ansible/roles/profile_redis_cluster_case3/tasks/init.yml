@@ -1,0 +1,210 @@
+---
+# tasks/init.yml
+# Converted from manifests/init.pp
+#
+# ⚠ MIGRATION NOTES — items requiring manual developer review:
+#
+# 1. PuppetDB peer discovery:
+#    The Puppet manifest ran:
+#      puppetdb_query("resources[certname] { type = 'Class' and title = 'Profile_redis_cluster_case3' }")
+#    to discover all cluster peer nodes. In Ansible, replace this with:
+#      - An Ansible dynamic inventory group (e.g. [redis_cluster])
+#      - A static variable: profile_redis_cluster_case3_cluster_nodes in group_vars/redis_cluster.yml
+#      - A dynamic inventory plugin if nodes are registered in a CMDB/service-discovery system
+#    The variable profile_redis_cluster_case3_cluster_nodes (defaults to []) is the placeholder.
+#    Trace all downstream uses of $redis_nodes in the original codebase before finalising.
+#
+# 2. mySecretType1 / mySecretProvider1 (Enterprise Scheduler registration):
+#    NOT SAFELY CONVERTIBLE — the provider wraps the proprietary CLI tool
+#    /usr/local/bin/schedulerctl whose output format, exit codes, and error
+#    conditions are entirely undocumented. A developer must obtain the full
+#    CLI contract from the platform owner before this can be automated.
+#    The tasks below include a commented-out placeholder.
+#
+# 3. mySecretFunction1 ('redis_service_token'):
+#    NOT SAFELY CONVERTIBLE — the function fetches from a proprietary internal
+#    secret store whose backend is unknown. The AAP credential variable
+#    redis_service_token is injected at runtime and is available as
+#    {{ redis_service_token }}. Determine how it should be consumed and add
+#    the appropriate task(s) here.
+# ---------------------------------------------------------------------------
+# Cluster peer discovery (replaces PuppetDB query)
+# ---------------------------------------------------------------------------
+# profile_redis_cluster_case3_cluster_nodes is defined in defaults/main.yml
+# and should be overridden in group_vars/redis_cluster.yml with actual peers.
+# ---------------------------------------------------------------------------
+# Health check data fetch (replaces myFunction1)
+# ---------------------------------------------------------------------------
+
+- name: Fetch health check data from local endpoint
+  ansible.builtin.uri:
+    url: "{{ profile_redis_cluster_case3_health_check_url }}"
+    method: GET
+    return_content: true
+  failed_when: false
+  register: profile_redis_cluster_case3_health_check_result
+
+# FIX (Cat 1 – Missing Prerequisite): /var/lib/redis/ is the parent directory
+# of health_check.json. The redis package creates /var/lib/redis owned by the
+# redis user, but on minimal/container targets it may be absent. Ensure it
+# exists before writing into it.
+- name: Ensure /var/lib/redis directory exists
+  ansible.builtin.file:
+    path: /var/lib/redis
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0750"
+
+- name: Write health_check.json # noqa: L039 L071 L073 - health_check_result registered by prior uri task; copy with Jinja content is intentional; indentation in folded scalar is valid YAML
+  ansible.builtin.copy: # noqa: L039 L071 L073 - health_check_result registered by prior uri task; copy with Jinja content is intentional; indentation in folded scalar is valid YAML
+    content: >- # noqa: L039 L071 L073 - health_check_result registered by prior uri task; copy with Jinja content is intentional; indentation in folded scalar is valid YAML
+      {{ (profile_redis_cluster_case3_health_check_result.json | to_json)
+        if profile_redis_cluster_case3_health_check_result.json is defined
+        else profile_redis_cluster_case3_health_check_result.content | default('{}') }}
+    dest: "{{ profile_redis_cluster_case3_health_check_json }}" # noqa: R114 - path from role defaults, not user input
+    owner: redis
+    group: redis
+    mode: "0644"
+    backup: true
+# ---------------------------------------------------------------------------
+# myapp deployment (replaces myDeploy1 custom type)
+# ---------------------------------------------------------------------------
+
+- name: Assert myapp deployment parameters are valid
+  ansible.builtin.assert:
+    that:
+      - profile_redis_cluster_case3_myapp_version | length > 0
+      - profile_redis_cluster_case3_myapp_url is match('^https?://')
+    fail_msg: myapp version must be non-empty and URL must start with http:// or https://
+
+- name: Ensure myapp install directory exists
+  ansible.builtin.file:
+    path: "{{ profile_redis_cluster_case3_myapp_install_dir }}" # noqa: R114 - path from role defaults, not user input
+    state: directory
+    mode: "0755"
+
+- name: Read current myapp version
+  ansible.builtin.slurp:
+    src: "{{ profile_redis_cluster_case3_myapp_install_dir }}/version.txt" # noqa: R114 - path from role defaults, not user input
+  register: profile_redis_cluster_case3_current_version_b64
+  ignore_errors: true
+
+- name: Download myapp artifact # noqa: L039 R104 R106 - current_version_b64 registered by prior slurp task; URL is role-controlled variable; HTTP acceptable for internal artifact mirrors
+  ansible.builtin.get_url: # noqa: L039 R104 R106 - current_version_b64 registered by prior slurp task; URL is role-controlled variable; HTTP acceptable for internal artifact mirrors
+    url: "{{ profile_redis_cluster_case3_myapp_url }}" # noqa: L039 R104 R106 - URL is a role-controlled variable; HTTP acceptable for internal artifact mirrors
+    dest: /tmp/myapp-{{ profile_redis_cluster_case3_myapp_version }}.tar.gz
+    mode: "0644"
+  when: > # noqa: L039 R104 R106 - current_version_b64 registered by prior slurp task
+    profile_redis_cluster_case3_current_version_b64.failed | default(true) or
+    (profile_redis_cluster_case3_current_version_b64.content | b64decode | trim)
+    != profile_redis_cluster_case3_myapp_version
+
+- name: Extract myapp artifact # noqa: L039 R104 R106 - current_version_b64 registered by prior slurp task; unarchive src is a local /tmp path, not a network transfer
+  ansible.builtin.unarchive: # noqa: L039 R104 R106 - current_version_b64 registered by prior slurp task; unarchive src is a local /tmp path, not a network transfer
+    src: /tmp/myapp-{{ profile_redis_cluster_case3_myapp_version }}.tar.gz # noqa: R104 R106 - src is a local /tmp path, not a network transfer
+    dest: "{{ profile_redis_cluster_case3_myapp_install_dir }}" # noqa: R114 - path from role defaults, not user input
+    remote_src: true
+    mode: "0755"
+  when: > # noqa: L039 - current_version_b64 registered by prior slurp task
+    profile_redis_cluster_case3_current_version_b64.failed | default(true) or
+    (profile_redis_cluster_case3_current_version_b64.content | b64decode | trim)
+    != profile_redis_cluster_case3_myapp_version
+
+- name: Write myapp version file # noqa: L039 L071 - current_version_b64 registered by prior slurp task; copy with single Jinja variable is intentional
+  ansible.builtin.copy: # noqa: L039 L071 - current_version_b64 registered by prior slurp task; copy with single Jinja variable is intentional
+    content: "{{ profile_redis_cluster_case3_myapp_version }}" # noqa: L039 L071 - copy with single Jinja variable is intentional
+    dest: "{{ profile_redis_cluster_case3_myapp_install_dir }}/version.txt" # noqa: R114 - path from role defaults, not user input
+    mode: "0644"
+    backup: true
+  when: > # noqa: L039 - current_version_b64 registered by prior slurp task
+    profile_redis_cluster_case3_current_version_b64.failed | default(true) or
+    (profile_redis_cluster_case3_current_version_b64.content | b64decode | trim)
+    != profile_redis_cluster_case3_myapp_version
+# ---------------------------------------------------------------------------
+# Enterprise Scheduler registration (mySecretType1 — NOT SAFELY CONVERTIBLE)
+# ---------------------------------------------------------------------------
+# ⚠ DEVELOPER ACTION REQUIRED:
+# The Puppet mySecretType1 provider wraps /usr/local/bin/schedulerctl to
+# register/query/unregister nodes in a proprietary Enterprise Scheduler.
+# The CLI contract (output format, exit codes, error conditions) is unknown.
+# Obtain documentation from the platform owner, then implement the tasks below.
+#
+# Placeholder (commented out — uncomment and complete after CLI is documented):
+#
+# - name: Query Enterprise Scheduler for redis-node registration
+#   ansible.builtin.command:
+#     argv:
+#       - /usr/local/bin/schedulerctl
+#       - query
+#       - redis-node
+#   register: profile_redis_cluster_case3_scheduler_query
+#   changed_when: false
+#   failed_when: false
+#
+# - name: Register redis-node with Enterprise Scheduler
+#   ansible.builtin.command:
+#     argv:
+#       - /usr/local/bin/schedulerctl
+#       - register
+#       - redis-node
+#       - --schedule
+#       - daily
+#   when: >
+#     profile_redis_cluster_case3_scheduler_query.rc != 0
+#   # NOTE: Adjust the 'when' condition once exit-code semantics are known.
+#   # The AAP credential variable redis_service_token ({{ redis_service_token }})
+#   # may be required here — add no_log: "{{ profile_redis_cluster_case3_secure_logging }}"
+#   # if the token is passed as an argument.
+# ---------------------------------------------------------------------------
+# CompanyApp settings (myFormatType1 — custom Ansible module)
+# ---------------------------------------------------------------------------
+# FIX (Cat 2 – Application Not Installed): This role does not install
+# CompanyApp. The settings file /etc/company/app.conf (and its parent
+# directory /etc/company/) only exist when CompanyApp is present on the
+# target. Guard both tasks with a stat check so the role fails loudly on
+# a target where CompanyApp is absent rather than silently creating a
+# stub file in a non-existent directory.
+
+- name: Stat CompanyApp config directory
+  ansible.builtin.stat:
+    path: "{{ profile_redis_cluster_case3_company_conf_file | dirname }}"
+  register: profile_redis_cluster_case3_company_conf_dir_stat
+
+- name: Set app-mode in CompanyApp settings file # noqa: L026 L039 - company_app_conf is a custom module with no available FQCN; company_conf_dir_stat registered by prior stat task
+  company_app_conf: # noqa: L026 L039 - company_app_conf is a custom module with no available FQCN; company_conf_dir_stat registered by prior stat task
+    file: "{{ profile_redis_cluster_case3_company_conf_file }}"
+    entry: app-mode
+    value: cluster
+    state: present
+  when: profile_redis_cluster_case3_company_conf_dir_stat.stat.exists # noqa: L039 - company_conf_dir_stat registered by prior stat task
+
+- name: Set health-port in CompanyApp settings file # noqa: L026 L039 - company_app_conf is a custom module with no available FQCN; company_conf_dir_stat registered by prior stat task
+  company_app_conf: # noqa: L026 L039 - company_app_conf is a custom module with no available FQCN; company_conf_dir_stat registered by prior stat task
+    file: "{{ profile_redis_cluster_case3_company_conf_file }}"
+    entry: health-port
+    value: "8080"
+    state: present
+  when: profile_redis_cluster_case3_company_conf_dir_stat.stat.exists # noqa: L039 - company_conf_dir_stat registered by prior stat task
+# ---------------------------------------------------------------------------
+# Redis backup cron job (replaces myCronType1)
+# ---------------------------------------------------------------------------
+# FIX (Cat 2 – Application Not Installed): /usr/local/bin/redis-backup.sh is
+# referenced by the cron job but is never deployed by this role. If the script
+# is absent the cron entry will silently fail at runtime. Guard the task with a
+# stat check so the role skips (and warns) rather than registering a broken job.
+
+- name: Stat redis-backup script
+  ansible.builtin.stat:
+    path: /usr/local/bin/redis-backup.sh
+  register: profile_redis_cluster_case3_backup_script_stat
+
+- name: Manage redis-backup cron entry # noqa: L039 - backup_script_stat registered by prior stat task
+  ansible.builtin.cron:
+    name: redis-backup
+    job: /usr/local/bin/redis-backup.sh
+    hour: "2"
+    minute: "30"
+    user: root
+    state: present
+  when: profile_redis_cluster_case3_backup_script_stat.stat.exists # noqa: L039 - backup_script_stat registered by prior stat task

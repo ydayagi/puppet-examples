@@ -1,0 +1,167 @@
+---
+# Converted from manifests/init.pp
+# profile_redis_cluster_case2
+
+- name: Validate credential variables
+  ansible.builtin.include_tasks: validate_credentials.yml
+# ---------------------------------------------------------------------------
+# Determine Redis role (primary / replica) — replaces the redis_role custom fact
+# ---------------------------------------------------------------------------
+
+- name: Check for replica configuration file
+  ansible.builtin.stat:
+    path: /etc/redis/conf.d/replica.conf
+  when: ansible_facts['system'] == 'Linux'
+  register: replica_conf_stat
+
+- name: Read replica configuration file content # noqa: L039 - replica_conf_stat registered by prior task
+  ansible.builtin.slurp:
+    src: /etc/redis/conf.d/replica.conf
+  when:
+    - ansible_facts['system'] == 'Linux'
+    - replica_conf_stat.stat.exists
+  register: replica_conf_content
+
+- name: Set redis_role fact # noqa: L039 - replica_conf_stat/replica_conf_content registered by prior tasks
+  ansible.builtin.set_fact:
+    redis_role: >-
+      {{ 'replica'
+        if (replica_conf_stat.stat.exists | default(false))
+        and ('replicaof' in (replica_conf_content.content | default('') | b64decode))
+        else 'primary' }}
+  when: ansible_facts['system'] == 'Linux'
+# ---------------------------------------------------------------------------
+# Install and configure Redis (contained subclass equivalent)
+# ---------------------------------------------------------------------------
+
+- name: Install and configure Redis
+  ansible.builtin.include_tasks: install.yml
+# ---------------------------------------------------------------------------
+# Deploy myapp artifact — replaces myDeploy1 custom type/provider
+# ---------------------------------------------------------------------------
+
+- name: Check myapp version file
+  ansible.builtin.stat:
+    path: "{{ profile_redis_cluster_case2_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+  register: myapp_version_stat
+
+- name: Read current myapp version # noqa: L039 - myapp_version_stat registered by prior task
+  ansible.builtin.slurp:
+    src: "{{ profile_redis_cluster_case2_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+  when: myapp_version_stat.stat.exists
+  register: myapp_version_content
+
+- name: Set myapp current version fact # noqa: L039 - myapp_version_content/myapp_version_stat registered by prior tasks
+  ansible.builtin.set_fact:
+    myapp_current_version: >-
+      {{ (myapp_version_content.content | b64decode | trim)
+        if myapp_version_stat.stat.exists
+        else '' }}
+
+- name: Ensure myapp install directory exists # noqa: L039 - myapp_current_version set by prior set_fact task
+  ansible.builtin.file:
+    path: "{{ profile_redis_cluster_case2_myapp_install_dir }}" # noqa: R114 - path from role-defined variable, not user input
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: myapp_current_version != profile_redis_cluster_case2_myapp_version
+
+- name: Download myapp artifact # noqa: L039 - myapp_current_version set by prior set_fact task
+  ansible.builtin.get_url:
+    url: "{{ profile_redis_cluster_case2_myapp_url }}" # noqa: R106 - URL is a role-defined variable; cannot be hardcoded as it varies per environment
+    dest: /tmp/myapp-{{ profile_redis_cluster_case2_myapp_version }}.tar.gz # noqa: R104 - URL scheme is determined by role variable; plain HTTP acceptable for internal artifact mirror
+    mode: "0644"
+  when: myapp_current_version != profile_redis_cluster_case2_myapp_version
+
+- name: Extract myapp artifact # noqa: L039 - myapp_current_version set by prior set_fact task
+  ansible.builtin.unarchive:
+    src: /tmp/myapp-{{ profile_redis_cluster_case2_myapp_version }}.tar.gz # noqa: R106 - source is a local temp file path; R106 misfired on parameterized local path
+    dest: "{{ profile_redis_cluster_case2_myapp_install_dir }}" # noqa: R104 R114 - URL scheme is determined by role variable; path from role-defined variable, not user input
+    remote_src: true
+    mode: "0755"
+  when: myapp_current_version != profile_redis_cluster_case2_myapp_version
+
+- name: Write myapp version file # noqa: L039 L071 - myapp_current_version set by prior set_fact; copy with plain version string, no template needed
+  ansible.builtin.copy:
+    content: "{{ profile_redis_cluster_case2_myapp_version }}" # noqa: L071 - plain version string in content, no template needed
+    dest: "{{ profile_redis_cluster_case2_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  when: myapp_current_version != profile_redis_cluster_case2_myapp_version
+# ---------------------------------------------------------------------------
+# Health check — replaces myFunction1('http://localhost:8080/health')
+# The health check endpoint (port 8080) belongs to myapp, which is deployed
+# above. The check is therefore placed after the myapp deploy block so that
+# the application is present before the endpoint is queried.
+# ---------------------------------------------------------------------------
+
+- name: Check myapp install directory exists before health check
+  ansible.builtin.stat:
+    path: "{{ profile_redis_cluster_case2_myapp_install_dir }}" # noqa: R114 - path from role-defined variable, not user input
+  register: myapp_dir_stat
+
+- name: Fetch health check endpoint # noqa: L039 - myapp_dir_stat registered by prior task
+  ansible.builtin.uri:
+    url: "{{ profile_redis_cluster_case2_health_check_url }}"
+    method: GET
+    return_content: true
+    status_code: 200
+  register: health_check_result
+  when: myapp_dir_stat.stat.exists
+
+- name: Ensure /var/lib/redis directory exists # noqa: L039 - myapp_dir_stat registered by prior task
+  ansible.builtin.file:
+    path: /var/lib/redis
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0755"
+  when: myapp_dir_stat.stat.exists
+
+- name: Write health check result to JSON file # noqa: L039 M005 - myapp_dir_stat registered by prior task; health_check_result is a registered variable used in content; copy with dynamic content, module change not permitted
+  ansible.builtin.copy: # noqa: L071 - health_check_result is a registered variable; copy with dynamic content, module change not permitted
+    content: "{{ health_check_result.content }}" # noqa: M005 - health_check_result registered by prior task; copy with dynamic content, module change not permitted
+    dest: "{{ profile_redis_cluster_case2_health_check_dest }}" # noqa: R114 - path from role-defined variable, not user input
+    owner: redis
+    group: redis
+    mode: "0644"
+    backup: true
+  when: myapp_dir_stat.stat.exists
+# ---------------------------------------------------------------------------
+# NOT SAFELY CONVERTIBLE — mySecretFunction1 / mySecretType1
+# ---------------------------------------------------------------------------
+# ⚠️  DEVELOPER ACTION REQUIRED — mySecretFunction1('redis_service_token')
+#
+# The Puppet function mySecretFunction1 fetches a secret from the proprietary
+# CompanyInternal::SecretStore (company_internal_lib Ruby gem). The backend
+# (Vault, database, internal API, etc.), authentication mechanism, and API
+# contract are entirely opaque. The AAP credential variable `redis_service_token`
+# is injected at runtime and is available as {{ redis_service_token }}, but
+# its downstream usage (beyond the original $service_token assignment) is not
+# visible in the analyzed Puppet tree. Identify how $service_token was consumed
+# and add the appropriate task here.
+#
+# ⚠️  DEVELOPER ACTION REQUIRED — mySecretType1 / mySecretProvider1 (schedulerctl)
+#
+# The Puppet resource mySecretType1 { 'redis-node': schedule => 'daily' } wraps
+# the proprietary schedulerctl CLI (/usr/local/bin/schedulerctl) with query,
+# register, and unregister subcommands. The CLI's expected output format, exit
+# codes, --schedule flag semantics, and side effects are entirely undocumented.
+# Without this information it is impossible to write idempotent Ansible tasks.
+# Obtain schedulerctl documentation or source code before attempting conversion.
+#
+# Placeholder tasks below use the AAP-injected credential variables but are
+# intentionally left as no-ops until the developer completes the above.
+# ---------------------------------------------------------------------------
+
+- name: PLACEHOLDER - use redis_service_token (developer action required)
+  ansible.builtin.debug:
+    msg: >-
+      redis_service_token is available as an AAP credential variable.
+      Implement the downstream usage of this token once the secret store
+      backend and consumption pattern have been identified.
+    verbosity: 2
+  no_log: "{{ profile_redis_cluster_case2_secure_logging }}"

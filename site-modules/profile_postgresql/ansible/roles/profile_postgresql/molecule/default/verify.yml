@@ -1,0 +1,179 @@
+---
+# Play 1: Verify APT repository and package installation
+- name: Verify PostgreSQL repository and packages
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Check pgdg APT repository file exists
+      ansible.builtin.stat:
+        path: /etc/apt/sources.list.d/pgdg.list
+      register: pgdg_repo_stat
+
+    - name: Assert pgdg APT repository file is present
+      ansible.builtin.assert:
+        that:
+          - pgdg_repo_stat['stat']['exists']
+          - pgdg_repo_stat['stat']['isreg']
+        fail_msg: "pgdg APT repository file not found at /etc/apt/sources.list.d/pgdg.list"
+
+    - name: Slurp pgdg repository file content
+      ansible.builtin.slurp:
+        src: /etc/apt/sources.list.d/pgdg.list
+      register: pgdg_repo_content
+
+    - name: Assert pgdg repository points to apt.postgresql.org
+      ansible.builtin.assert:
+        that:
+          - "'apt.postgresql.org' in (pgdg_repo_content['content'] | b64decode)"
+          - "'pgdg' in (pgdg_repo_content['content'] | b64decode)"
+        fail_msg: "pgdg repository file does not contain expected apt.postgresql.org/pgdg content"
+
+    - name: Check PostgreSQL packages are installed
+      ansible.builtin.package_facts:
+        manager: apt
+
+    - name: Assert postgresql package is installed
+      ansible.builtin.assert:
+        that:
+          - "'postgresql-16' in ansible_facts['packages']"
+        fail_msg: "Package postgresql-16 is not installed"
+
+    - name: Assert postgresql-contrib package is installed
+      ansible.builtin.assert:
+        that:
+          - "'postgresql-contrib-16' in ansible_facts['packages']"
+        fail_msg: "Package postgresql-contrib-16 is not installed"
+
+    - name: Assert libpq-dev package is installed
+      ansible.builtin.assert:
+        that:
+          - "'libpq-dev' in ansible_facts['packages']"
+        fail_msg: "Package libpq-dev is not installed"
+
+# Play 2: Verify PostgreSQL service state
+- name: Verify PostgreSQL service
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert postgresql service is present
+      ansible.builtin.assert:
+        that:
+          - "'postgresql.service' in ansible_facts['services']"
+        fail_msg: "postgresql.service not found in service facts"
+
+    - name: Assert postgresql service is running
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['services']['postgresql.service']['state'] == 'running'
+        fail_msg: "postgresql.service is not in running state"
+
+    - name: Assert postgresql service is enabled
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['services']['postgresql.service']['status'] == 'enabled'
+        fail_msg: "postgresql.service is not enabled"
+
+    - name: Assert PostgreSQL is listening on port 5432
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 5432
+        state: started
+        timeout: 10
+
+# Play 3: Verify filesystem state (health check dir/file, artifact dir)
+- name: Verify filesystem artifacts
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check expected directories exist
+      ansible.builtin.stat:
+        path: "{{ item_dir }}"  # noqa: R114 - path from fixed molecule test list, not user input
+      loop:
+        - /var/lib/pgsql
+        - /opt/myapp
+      loop_control:
+        loop_var: item_dir
+      register: dir_stat_results
+
+    - name: Assert expected directories were created
+      ansible.builtin.assert:
+        that:
+          - item_result['stat']['exists']
+          - item_result['stat']['isdir']
+        fail_msg: "Expected directory was not created"
+      loop: "{{ dir_stat_results['results'] }}"
+      loop_control:
+        loop_var: item_result
+
+    - name: Check health check JSON file exists
+      ansible.builtin.stat:
+        path: /var/lib/pgsql/health_check.json
+      register: health_check_stat
+
+    - name: Assert health check JSON file is present
+      ansible.builtin.assert:
+        that:
+          - health_check_stat['stat']['exists']
+          - health_check_stat['stat']['isreg']
+        fail_msg: "Health check JSON file not found at /var/lib/pgsql/health_check.json"
+
+    - name: Assert health check JSON file has correct ownership
+      ansible.builtin.assert:
+        that:
+          - health_check_stat['stat']['pw_name'] == 'postgres'
+          - health_check_stat['stat']['gr_name'] == 'postgres'
+        fail_msg: "Health check JSON file does not have expected postgres:postgres ownership"
+
+    - name: Check artifact version file exists
+      ansible.builtin.stat:
+        path: /opt/myapp/version.txt
+      register: version_file_stat
+
+    - name: Assert artifact version file is present
+      ansible.builtin.assert:
+        that:
+          - version_file_stat['stat']['exists']
+          - version_file_stat['stat']['isreg']
+        fail_msg: "Artifact version.txt not found at /opt/myapp/version.txt"
+
+    - name: Slurp artifact version file
+      ansible.builtin.slurp:
+        src: /opt/myapp/version.txt
+      register: version_file_content
+
+    - name: Assert artifact version matches expected value
+      ansible.builtin.assert:
+        that:
+          - (version_file_content['content'] | b64decode | trim) == '2.1.0'
+        fail_msg: "Artifact version.txt does not contain expected version 2.1.0"
+
+# Play 4: Verify cron job configuration
+- name: Verify cron job
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Read root crontab
+      ansible.builtin.command:
+        argv:
+          - crontab
+          - -u
+          - root
+          - -l
+      register: root_crontab
+      changed_when: false
+      failed_when: root_crontab['rc'] not in [0, 1]
+
+    - name: Assert postgres-backup cron job is present
+      ansible.builtin.assert:
+        that:
+          - "'/usr/local/bin/postgres-backup.sh' in root_crontab['stdout']"
+        fail_msg: "postgres-backup cron job not found in root crontab"
+
+    - name: Assert cron job runs at 02:30
+      ansible.builtin.assert:
+        that:
+          - "'30 2' in root_crontab['stdout'] or '30 02' in root_crontab['stdout']"
+        fail_msg: "postgres-backup cron job does not have expected 02:30 schedule"

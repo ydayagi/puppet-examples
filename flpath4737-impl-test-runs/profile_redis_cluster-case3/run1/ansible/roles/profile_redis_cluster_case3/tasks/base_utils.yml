@@ -1,0 +1,19 @@
+---
+# Converted from: ../../site/modules/common/base_utils/manifests/init.pp
+# Manages MOTD and installs OS-specific utility packages.
+
+- name: Deploy MOTD template
+  ansible.builtin.template:
+    src: motd.j2
+    dest: /etc/motd
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  when: profile_redis_cluster_case3_manage_motd | bool
+
+- name: Install utility packages
+  ansible.builtin.package:
+    name: "{{ profile_redis_cluster_case3_utility_packages }}"
+    state: present
+  when: profile_redis_cluster_case3_utility_packages | length > 0

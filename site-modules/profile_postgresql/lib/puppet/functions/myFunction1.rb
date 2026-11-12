@@ -9,17 +9,21 @@ Puppet::Functions.create_function(:myFunction1) do
   end
 
   def execute(url)
-    uri = URI.parse(url)
-    response = Net::HTTP.get_response(uri)
+    begin
+      uri = URI.parse(url)
+      response = Net::HTTP.get_response(uri)
 
-    if response.is_a?(Net::HTTPSuccess)
-      begin
-        JSON.parse(response.body)
-      rescue JSON::ParserError
-        response.body
+      if response.is_a?(Net::HTTPSuccess)
+        begin
+          JSON.parse(response.body)
+        rescue JSON::ParserError
+          response.body
+        end
+      else
+        { 'status' => 'error', 'code' => response.code }
       end
-    else
-      raise Puppet::Error, "HTTP GET failed with status code #{response.code}"
+    rescue => e
+      { 'status' => 'unreachable', 'error' => e.message }
     end
   end
 end

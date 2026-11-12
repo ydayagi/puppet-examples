@@ -1,0 +1,151 @@
+---
+# Converted from: ../../site/modules/linux/profile_redis_cluster/manifests/init.pp
+# Entry point for the profile_redis_cluster_case3 role.
+# Execution order mirrors the Puppet role chain:
+#   1. Validate AAP credentials
+#   2. Base OS setup (chrony, rsyslog)
+#   3. Determine Redis node role (primary/replica)
+#   4. Redis cluster install and configuration
+#   5. Health check fetch and write
+#   6. myapp artifact deployment
+#   7. Enterprise Scheduler registration (flagged — requires manual review)
+
+- name: Validate credential variables
+  ansible.builtin.include_tasks: validate_credentials.yml
+
+- name: Run base OS setup (NTP, syslog)
+  ansible.builtin.include_tasks: base.yml
+
+- name: Determine Redis node role (primary or replica)
+  ansible.builtin.include_tasks: redis_role_fact.yml
+
+- name: Run Redis profile (install and configure Redis)
+  ansible.builtin.include_tasks: redis_profile.yml
+# --- myFunction1 conversion: HTTP GET health check → write JSON file ---
+
+- name: Fetch health check from {{ profile_redis_cluster_case3_health_check_url }}
+  ansible.builtin.uri:
+    url: "{{ profile_redis_cluster_case3_health_check_url }}"
+    method: GET
+    return_content: true
+    status_code: 2xx
+  register: profile_redis_cluster_case3_health_check_result
+
+- name: Write health check JSON to {{ profile_redis_cluster_case3_health_check_dest }} # noqa: L071 - copy with Jinja content; module change not permitted per fix rules
+  ansible.builtin.copy: # noqa: M005 - registered variable used in copy content; untrusted in 2.19+
+    content: "{{ profile_redis_cluster_case3_health_check_result.json | to_json }}"
+    dest: "{{ profile_redis_cluster_case3_health_check_dest }}" # noqa: R114 - path from role-defined variable, not user input
+    owner: redis
+    group: redis
+    mode: "0644"
+    backup: true
+# --- myDeploy1 conversion: deploy myapp artifact ---
+
+- name: Read installed version of myapp
+  ansible.builtin.slurp:
+    src: "{{ profile_redis_cluster_case3_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+  register: profile_redis_cluster_case3_installed_version_raw
+  ignore_errors: true
+
+- name: Set myapp installed version fact # noqa: L039 - profile_redis_cluster_case3_installed_version_raw registered by prior task
+  ansible.builtin.set_fact: # noqa: M005 - registered variable used in set_fact value; untrusted in 2.19+
+    profile_redis_cluster_case3_myapp_installed_version: >-
+      {{ profile_redis_cluster_case3_installed_version_raw.content
+        | default('')
+        | b64decode
+        | trim }}
+
+- name: Create myapp install directory # noqa: L039 - profile_redis_cluster_case3_myapp_installed_version set by prior set_fact task
+  ansible.builtin.file:
+    path: "{{ profile_redis_cluster_case3_myapp_install_dir }}" # noqa: R114 - path from role-defined variable, not user input
+    state: directory
+    mode: "0755"
+  when: >-
+    profile_redis_cluster_case3_myapp_installed_version
+    != profile_redis_cluster_case3_myapp_version
+
+- name: Download myapp artifact # noqa: R106 - URL is role-defined variable; parameterized source is intentional
+  ansible.builtin.get_url: # noqa: R104 - HTTP acceptable for internal mirror without TLS support
+    url: "{{ profile_redis_cluster_case3_myapp_url }}"
+    dest: /tmp/myapp-{{ profile_redis_cluster_case3_myapp_version }}.tar.gz
+    mode: "0644"
+  when: >- # noqa: L039 - profile_redis_cluster_case3_myapp_installed_version set by prior set_fact task
+    profile_redis_cluster_case3_myapp_installed_version
+    != profile_redis_cluster_case3_myapp_version
+
+- name: Extract myapp artifact # noqa: R106 - URL is role-defined variable; parameterized source is intentional
+  ansible.builtin.unarchive: # noqa: R104 - HTTP acceptable for internal mirror without TLS support
+    src: /tmp/myapp-{{ profile_redis_cluster_case3_myapp_version }}.tar.gz
+    dest: "{{ profile_redis_cluster_case3_myapp_install_dir }}" # noqa: R114 - path from role-defined variable, not user input
+    remote_src: true
+    mode: "0755"
+  when: >- # noqa: L039 - profile_redis_cluster_case3_myapp_installed_version set by prior set_fact task
+    profile_redis_cluster_case3_myapp_installed_version
+    != profile_redis_cluster_case3_myapp_version
+
+- name: Write myapp version file # noqa: L071 - copy with Jinja content; module change not permitted per fix rules
+  ansible.builtin.copy:
+    content: "{{ profile_redis_cluster_case3_myapp_version }}"
+    dest: "{{ profile_redis_cluster_case3_myapp_install_dir }}/version.txt" # noqa: R114 - path from role-defined variable, not user input
+    mode: "0644"
+    backup: true
+  when: >- # noqa: L039 - profile_redis_cluster_case3_myapp_installed_version set by prior set_fact task
+    profile_redis_cluster_case3_myapp_installed_version
+    != profile_redis_cluster_case3_myapp_version
+# --- mySecretType1 / mySecretFunction1 conversion ---
+# NOTE FOR AUTOMATION DEVELOPER — MANUAL REVIEW REQUIRED:
+#
+# mySecretFunction1('redis_service_token'):
+#   This function fetches a secret from 'CompanyInternal::SecretStore'.
+#   The backend is unknown (HashiCorp Vault, AWS Secrets Manager, CyberArk, etc.).
+#   The AAP credential variable 'redis_service_token' is injected at runtime and
+#   is available as {{ redis_service_token }}. Use it directly once the downstream
+#   consumer (schedulerctl or API) is identified.
+#
+# mySecretType1 { 'redis-node': schedule => 'daily' }:
+#   This registers the node with a proprietary Enterprise Scheduler platform via
+#   the CLI at /usr/local/bin/schedulerctl. The CLI's subcommands (query, register,
+#   unregister), --schedule flag semantics, exit codes, and the underlying platform
+#   are entirely undocumented and proprietary.
+#
+#   Before converting this task, the automation developer must:
+#     1. Obtain the source or documentation for /usr/local/bin/schedulerctl
+#     2. Identify the Enterprise Scheduler platform's interface (REST API, SDK, or CLI)
+#     3. Determine exit codes for 'query' (exists vs. not-registered vs. error)
+#     4. Decide: wrap with ansible.builtin.command tasks, use ansible.builtin.uri
+#        against a REST API, or write a custom Ansible module
+#
+# Placeholder tasks below use the injected AAP credential variable.
+# Replace the shell stubs with the correct implementation once the platform is known.
+
+- name: Check if schedulerctl binary is present
+  ansible.builtin.stat:
+    path: /usr/local/bin/schedulerctl
+  register: profile_redis_cluster_case3_schedulerctl_stat
+
+- name: Check Enterprise Scheduler registration for redis-node (REQUIRES MANUAL REVIEW) # noqa: L039 - profile_redis_cluster_case3_schedulerctl_stat registered by prior task
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/schedulerctl
+      - query
+      - redis-node
+  changed_when: false
+  failed_when: false
+  register: profile_redis_cluster_case3_scheduler_query
+  no_log: "{{ profile_redis_cluster_case3_secure_logging }}"
+  when: profile_redis_cluster_case3_schedulerctl_stat.stat.exists
+
+- name: Register redis-node with Enterprise Scheduler (REQUIRES MANUAL REVIEW) # noqa: L039 - profile_redis_cluster_case3_scheduler_query and profile_redis_cluster_case3_schedulerctl_stat registered by prior tasks
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/schedulerctl
+      - register
+      - redis-node
+      - --schedule
+      - daily
+  when:
+    - profile_redis_cluster_case3_schedulerctl_stat.stat.exists
+    - profile_redis_cluster_case3_scheduler_query.rc is defined
+    - profile_redis_cluster_case3_scheduler_query.rc != 0
+  changed_when: profile_redis_cluster_case3_scheduler_query.rc != 0
+  no_log: "{{ profile_redis_cluster_case3_secure_logging }}"

@@ -1,0 +1,103 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure a Redis cluster node with companion app deployment
+    description:
+      - Installs and configures Redis with password authentication, memory limits, and append-only persistence.
+      - Deploys the myapp companion artifact to /opt/myapp with idempotent version checking.
+      - Fetches a health-check JSON payload from a local HTTP endpoint and writes it to disk.
+      - Discovers cluster peer nodes via the Ansible inventory redis_cluster group.
+      - Enterprise Scheduler registration (mySecretType1) is NOT SAFELY CONVERTIBLE and requires developer investigation before enabling.
+    options:
+      profile_redis_cluster_case2_redis_port:
+        type: int
+        required: false
+        default: 6379
+        description: TCP port Redis listens on.
+      profile_redis_cluster_case2_redis_bind:
+        type: str
+        required: false
+        default: 0.0.0.0
+        description: IP address Redis binds to.
+      profile_redis_cluster_case2_maxmemory_mb:
+        type: int
+        required: false
+        default: 2048
+        description: Maximum memory Redis may use, in megabytes.
+      profile_redis_cluster_case2_maxmemory_policy:
+        type: str
+        required: false
+        default: allkeys-lru
+        description: Redis eviction policy when maxmemory is reached.
+      profile_redis_cluster_case2_appendonly:
+        type: bool
+        required: false
+        default: true
+        description: Whether to enable Redis append-only persistence.
+      profile_redis_cluster_case2_appendfsync:
+        type: str
+        required: false
+        default: everysec
+        description: Redis appendfsync mode (always, everysec, no).
+      profile_redis_cluster_case2_myapp_version:
+        type: str
+        required: false
+        default: 2.1.0
+        description: Target version of the myapp companion artifact to deploy.
+      profile_redis_cluster_case2_myapp_url:
+        type: str
+        required: false
+        default: http://artifacts.internal/myapp-2.1.0.tar.gz
+        description: URL from which to download the myapp artifact tarball.
+      profile_redis_cluster_case2_myapp_install_dir:
+        type: str
+        required: false
+        default: /opt/myapp
+        description: Directory into which myapp is extracted.
+      profile_redis_cluster_case2_health_check_url:
+        type: str
+        required: false
+        default: http://localhost:8080/health
+        description: URL of the local health-check HTTP endpoint to query.
+      profile_redis_cluster_case2_health_check_dest:
+        type: str
+        required: false
+        default: /var/lib/redis/health_check.json
+        description: Filesystem path where the health-check JSON response is written.
+      profile_redis_cluster_case2_log_dir:
+        type: str
+        required: false
+        default: /var/log/redis
+        description: Directory for Redis log files.
+      profile_redis_cluster_case2_secure_logging:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          When true, tasks that handle secret credentials suppress their output via no_log.
+          Set to false only for debugging — this will expose secret values in job logs.
+      redis_password:
+        type: str
+        required: true
+        description: >-
+          Redis authentication password. Injected at runtime by the AAP credential type.
+          Must NOT be stored in plaintext — use an AAP credential or vault-encrypted variable.
+      redis_service_token:
+        type: str
+        required: true
+        description: >-
+          Service token for the Enterprise Scheduler (schedulerctl). Injected at runtime
+          by the AAP credential type. Used by the NOT SAFELY CONVERTIBLE scheduler
+          registration block — see tasks/main.yml for details.
+      secret_store_url:
+        type: str
+        required: true
+        description: >-
+          URL of the internal secret store (CompanyInternal::SecretStore). Injected at
+          runtime by the AAP credential type.
+      secret_store_auth_token:
+        type: str
+        required: true
+        description: >-
+          Authentication token for the internal secret store. Injected at runtime by the
+          AAP credential type.

@@ -1,0 +1,8 @@
+---
+# Converted from: ../../site/profile/manifests/cache/redis.pp
+# Thin wrapper that delegates to the profile_redis_cluster tasks.
+# The Puppet $environment_name (fact('environment')) maps to the Ansible
+# 'ansible_environment' variable or can be set via inventory/extra_vars.
+
+- name: Apply Redis cluster profile
+  ansible.builtin.include_tasks: profile_redis_cluster.yml

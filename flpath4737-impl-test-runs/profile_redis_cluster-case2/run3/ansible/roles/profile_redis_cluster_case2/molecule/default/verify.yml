@@ -1,0 +1,113 @@
+---
+# verify.yml — profile_redis_cluster_case2
+# Asserts the role's expected outcomes against real production paths and state.
+# Pre-flight checks translated from migration-plan-profile_redis_cluster_case2.md
+
+- name: Verify filesystem state
+  hosts: all
+  gather_facts: false
+  tasks:
+    # ------------------------------------------------------------------
+    # Redis log directory: /var/log/redis
+    # ------------------------------------------------------------------
+    - name: Stat Redis log directory
+      ansible.builtin.stat:
+        path: /var/log/redis
+      register: profile_redis_cluster_case2_log_dir_stat
+
+    - name: Assert Redis log directory exists with correct attributes
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_log_dir_stat['stat']['exists']
+          - profile_redis_cluster_case2_log_dir_stat['stat']['isdir']
+          - profile_redis_cluster_case2_log_dir_stat['stat']['pw_name'] == 'redis'
+          - profile_redis_cluster_case2_log_dir_stat['stat']['gr_name'] == 'redis'
+          - profile_redis_cluster_case2_log_dir_stat['stat']['mode'] == '0755'
+        fail_msg: "Redis log directory /var/log/redis is missing or has incorrect attributes"
+
+    # ------------------------------------------------------------------
+    # myapp version sentinel: /opt/myapp/version.txt
+    # ------------------------------------------------------------------
+    - name: Stat myapp version sentinel file
+      ansible.builtin.stat:
+        path: /opt/myapp/version.txt
+      register: profile_redis_cluster_case2_version_stat # noqa: L033 - first registration of this variable in this play; no prior definition to conflict with
+
+    - name: Assert myapp version sentinel file exists
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_version_stat['stat']['exists']
+          - profile_redis_cluster_case2_version_stat['stat']['size'] > 0
+        fail_msg: "myapp version sentinel /opt/myapp/version.txt is missing or empty"
+
+    - name: Read myapp version sentinel file
+      ansible.builtin.slurp:
+        src: /opt/myapp/version.txt
+      register: profile_redis_cluster_case2_version_content # noqa: L033 - first registration of this variable in this play; no prior definition to conflict with
+
+    - name: Assert myapp version is 2.1.0
+      ansible.builtin.assert:
+        that:
+          - (profile_redis_cluster_case2_version_content['content'] | b64decode | trim) == '2.1.0'
+        fail_msg: "myapp version.txt does not contain expected version 2.1.0"
+
+    # ------------------------------------------------------------------
+    # Health check JSON file: /var/lib/redis/health_check.json
+    # ------------------------------------------------------------------
+    - name: Stat health check JSON file
+      ansible.builtin.stat:
+        path: /var/lib/redis/health_check.json
+      register: profile_redis_cluster_case2_health_stat
+
+    - name: Assert health check JSON file exists with correct attributes
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_health_stat['stat']['exists']
+          - profile_redis_cluster_case2_health_stat['stat']['size'] > 0
+          - profile_redis_cluster_case2_health_stat['stat']['pw_name'] == 'redis'
+          - profile_redis_cluster_case2_health_stat['stat']['gr_name'] == 'redis'
+          - profile_redis_cluster_case2_health_stat['stat']['mode'] == '0644'
+        fail_msg: "Health check file /var/lib/redis/health_check.json is missing or has incorrect attributes"
+
+    # ------------------------------------------------------------------
+    # Redis configuration file: /etc/redis/redis.conf
+    # ------------------------------------------------------------------
+    - name: Stat Redis configuration file
+      ansible.builtin.stat:
+        path: /etc/redis/redis.conf
+      register: profile_redis_cluster_case2_conf_stat
+
+    - name: Assert Redis configuration file exists
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_conf_stat['stat']['exists']
+          - profile_redis_cluster_case2_conf_stat['stat']['size'] > 0
+        fail_msg: "Redis configuration file /etc/redis/redis.conf is missing or empty"
+
+- name: Verify Redis service and port
+  hosts: all
+  gather_facts: false
+  tasks:
+    # ------------------------------------------------------------------
+    # Redis service state
+    # ------------------------------------------------------------------
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Redis service is active and enabled
+      ansible.builtin.assert:
+        that:
+          - "'redis.service' in ansible_facts['services']"
+          - ansible_facts['services']['redis.service']['state'] == 'running'
+          - ansible_facts['services']['redis.service']['status'] == 'enabled'
+        fail_msg: "Redis service is not running or not enabled"
+
+    # ------------------------------------------------------------------
+    # Redis port 6379 is listening
+    # ------------------------------------------------------------------
+    - name: Assert Redis port 6379 is accepting connections
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 6379
+        state: started
+        timeout: 10

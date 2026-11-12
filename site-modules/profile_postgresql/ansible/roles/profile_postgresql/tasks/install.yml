@@ -1,0 +1,7 @@
+---
+# tasks/install.yml — Install PostgreSQL packages
+
+- name: Install PostgreSQL packages
+  ansible.builtin.package:
+    name: "{{ profile_postgresql_package_names + profile_postgresql_extra_packages }}"
+    state: present

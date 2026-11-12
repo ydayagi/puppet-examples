@@ -1,0 +1,40 @@
+---
+# tasks/install.yml
+# Converted from manifests/install.pp
+# Installs and configures Redis, and ensures the log directory exists.
+#
+# NOTE: The Puppet manifest used the external community class 'redis'
+# (puppet-redis) with manage_package: true. The equivalent here is to
+# install the redis package and deploy a minimal configuration.
+# Full Redis configuration management (redis.conf) should be handled
+# by a dedicated Redis role or collection if available in AAP Private Hub.
+
+- name: Install Redis package
+  ansible.builtin.package:
+    name: redis
+    state: present
+
+- name: Ensure Redis log directory exists
+  ansible.builtin.file:
+    path: "{{ profile_redis_cluster_case3_log_dir }}" # noqa: R114 - path from role defaults, not user input
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0755"
+
+- name: Deploy Redis configuration
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: /etc/redis/redis.conf
+    owner: redis
+    group: redis
+    mode: "0640"
+    backup: true
+  notify: Restart redis
+  no_log: "{{ profile_redis_cluster_case3_secure_logging }}"
+
+- name: Ensure Redis service is started and enabled
+  ansible.builtin.service:
+    name: redis
+    state: started
+    enabled: true

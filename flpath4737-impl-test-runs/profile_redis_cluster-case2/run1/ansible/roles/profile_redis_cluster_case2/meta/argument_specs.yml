@@ -1,0 +1,104 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure a Redis cluster node with companion myapp deployment
+    description:
+      - Installs and configures Redis bound to all interfaces with AOF persistence.
+      - Creates the Redis log directory.
+      - Deploys the myapp companion application artifact.
+      - Performs a health check against the local health endpoint and writes the result to a JSON file.
+      - Determines the Redis role (primary or replica) from the local replica configuration file.
+      - The redis_password, redis_service_token, secret_store_url, and secret_store_auth_token variables are injected at runtime by AAP credential types and are
+        not defined in defaults.
+    options:
+      profile_redis_cluster_case2_redis_port:
+        type: int
+        required: false
+        default: 6379
+        description: TCP port Redis listens on.
+      profile_redis_cluster_case2_maxmemory_mb:
+        type: int
+        required: false
+        default: 2048
+        description: Maximum memory Redis may use, in megabytes.
+      profile_redis_cluster_case2_maxmemory_policy:
+        type: str
+        required: false
+        default: allkeys-lru
+        description: Redis eviction policy applied when maxmemory is reached.
+      profile_redis_cluster_case2_redis_bind:
+        type: str
+        required: false
+        default: 0.0.0.0
+        description: IP address Redis binds to. Defaults to all interfaces.
+      profile_redis_cluster_case2_redis_appendonly:
+        type: bool
+        required: false
+        default: true
+        description: Whether to enable AOF (Append Only File) persistence.
+      profile_redis_cluster_case2_redis_appendfsync:
+        type: str
+        required: false
+        default: everysec
+        description: AOF fsync policy. One of always, everysec, or no.
+      profile_redis_cluster_case2_myapp_version:
+        type: str
+        required: false
+        default: 2.1.0
+        description: Version of the myapp artifact to deploy.
+      profile_redis_cluster_case2_myapp_url:
+        type: str
+        required: false
+        default: http://artifacts.internal/myapp-2.1.0.tar.gz
+        description: URL from which the myapp tarball is downloaded.
+      profile_redis_cluster_case2_myapp_install_dir:
+        type: str
+        required: false
+        default: /opt/myapp
+        description: Directory into which the myapp artifact is extracted.
+      profile_redis_cluster_case2_redis_log_dir:
+        type: str
+        required: false
+        default: /var/log/redis
+        description: Directory where Redis writes its log files.
+      profile_redis_cluster_case2_health_check_url:
+        type: str
+        required: false
+        default: http://localhost:8080/health
+        description: URL of the health check endpoint to query.
+      profile_redis_cluster_case2_health_check_dest:
+        type: str
+        required: false
+        default: /var/lib/redis/health_check.json
+        description: File path where the health check JSON response is written.
+      profile_redis_cluster_case2_secure_logging:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          When true, tasks that handle secret credentials suppress their output
+          via no_log. Set to false only for debugging.
+      redis_password:
+        type: str
+        required: true
+        description: >-
+          Redis authentication password. Injected at runtime by the AAP
+          credential type — do not set a default value.
+      redis_service_token:
+        type: str
+        required: true
+        description: >-
+          Service token for the Redis node, fetched from the internal secret
+          store. Injected at runtime by the AAP credential type.
+      secret_store_url:
+        type: str
+        required: true
+        description: >-
+          URL of the internal secret store. Injected at runtime by the AAP
+          credential type.
+      secret_store_auth_token:
+        type: str
+        required: true
+        description: >-
+          Authentication token for the internal secret store. Injected at
+          runtime by the AAP credential type.

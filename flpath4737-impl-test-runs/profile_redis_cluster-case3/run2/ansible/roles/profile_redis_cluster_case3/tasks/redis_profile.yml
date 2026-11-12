@@ -1,0 +1,13 @@
+---
+# Converted from: ../../site/profile/manifests/cache/redis.pp
+# Thin wrapper profile that delegates to the main Redis cluster tasks.
+# The Puppet $environment_name fact (fact('environment')) maps to the
+# Ansible inventory variable ansible_facts['environment'] or the
+# standard 'ansible_environment' — captured here for informational use only.
+
+- name: Capture Ansible environment name
+  ansible.builtin.set_fact:
+    profile_redis_cluster_case3_environment_name: "{{ ansible_environment | default('production') }}"
+
+- name: Include Redis cluster install tasks
+  ansible.builtin.include_tasks: install.yml

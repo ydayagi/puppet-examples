@@ -1,0 +1,37 @@
+---
+# Converted from: ../../site/profile/manifests/base/base.pp
+# Handles common OS-level configuration: NTP (chrony), syslog (rsyslog), and utility packages.
+
+- name: Install NTP (chrony) package
+  ansible.builtin.package:
+    name: chrony
+    state: present
+  when:
+    - profile_redis_cluster_case2_manage_ntp | bool
+    - ansible_facts['kernel'] == 'Linux'
+
+- name: Ensure chronyd service is running and enabled
+  ansible.builtin.service:
+    name: chronyd
+    state: started
+    enabled: true
+  when:
+    - profile_redis_cluster_case2_manage_ntp | bool
+    - ansible_facts['kernel'] == 'Linux'
+
+- name: Install syslog (rsyslog) package
+  ansible.builtin.package:
+    name: rsyslog
+    state: present
+  when:
+    - profile_redis_cluster_case2_manage_syslog | bool
+    - ansible_facts['kernel'] == 'Linux'
+
+- name: Ensure rsyslog service is running and enabled
+  ansible.builtin.service:
+    name: rsyslog
+    state: started
+    enabled: true
+  when:
+    - profile_redis_cluster_case2_manage_syslog | bool
+    - ansible_facts['kernel'] == 'Linux'

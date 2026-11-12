@@ -1,0 +1,20 @@
+---
+# Redis instance configuration
+profile_redis_cluster_case2_redis_port: 6379
+# redis_password is injected at runtime by AAP credential type — do NOT set a default here
+profile_redis_cluster_case2_maxmemory_mb: 2048
+profile_redis_cluster_case2_maxmemory_policy: allkeys-lru
+profile_redis_cluster_case2_redis_bind: 0.0.0.0
+profile_redis_cluster_case2_redis_appendonly: true
+profile_redis_cluster_case2_redis_appendfsync: everysec
+# myapp deployment configuration
+profile_redis_cluster_case2_myapp_version: 2.1.0
+profile_redis_cluster_case2_myapp_url: http://artifacts.internal/myapp-2.1.0.tar.gz
+profile_redis_cluster_case2_myapp_install_dir: /opt/myapp
+# Redis log directory
+profile_redis_cluster_case2_redis_log_dir: /var/log/redis
+# Health check endpoint
+profile_redis_cluster_case2_health_check_url: http://localhost:8080/health
+profile_redis_cluster_case2_health_check_dest: /var/lib/redis/health_check.json
+# Secure logging toggle — set to false only for debugging
+profile_redis_cluster_case2_secure_logging: true

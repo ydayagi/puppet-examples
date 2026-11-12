@@ -1,0 +1,133 @@
+{
+  "module_name": "profile_redis_cluster_case2",
+  "items": [
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/aap-configuration/controller_credential_types.yml",
+      "status": "complete",
+      "description": "AAP credential types configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/aap-configuration/controller_credentials.yml",
+      "status": "complete",
+      "description": "AAP credentials configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/validate_credentials.yml",
+      "status": "complete",
+      "description": "Credential validation tasks",
+      "notes": ""
+    },
+    {
+      "category": "attributes",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/defaults/main.yml",
+      "status": "complete",
+      "description": "Convert class parameter defaults to Ansible role defaults: redis_port (6379), redis_password (CHANGEME \u2014 must be vaulted), maxmemory_mb (2048), maxmemory_policy (allkeys-lru)",
+      "notes": "All 4 class parameter defaults converted. redis_password injected by AAP credential type at runtime."
+    },
+    {
+      "category": "templates",
+      "source_path": "templates/redis.conf.erb",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/templates/redis.conf.j2",
+      "status": "complete",
+      "description": "Convert Redis configuration ERB template to Jinja2; replace @facts['networking']['fqdn'] \u2192 {{ ansible_fqdn }}, @redis_port \u2192 {{ redis_cluster_case2_redis_port }}, @redis_password \u2192 {{ redis_cluster_case2_redis_password }}, @maxmemory_mb \u2192 {{ redis_cluster_case2_maxmemory_mb }}, @maxmemory_policy \u2192 {{ redis_cluster_case2_maxmemory_policy }}",
+      "notes": "Replaced hardcoded 'dir /var/lib/redis' with '{{ redis_cluster_case2_data_dir }}' and 'logfile /var/log/redis/redis-server.log' with '{{ redis_cluster_case2_log_dir }}/redis-server.log'. Both variables are defined in defaults/main.yml. The data_dir variable was defined but never consumed \u2014 the template was the only place it should have been used."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/main.yml",
+      "status": "complete",
+      "description": "Convert init.pp entry class to main tasks: redis_role fact detection (stat + slurp /etc/redis/conf.d/replica.conf), HTTP health-check via ansible.builtin.uri, write /var/lib/redis/health_check.json, myapp deployment (stat version.txt, get_url, unarchive, copy version), mySecretType1 schedulerctl registration (flagged \u2014 NOT SAFELY CONVERTIBLE), include install tasks. PuppetDB query replaced by inventory group reference.",
+      "notes": "1) Moved myapp deployment block before health-check block so the health endpoint (served by myapp on port 8080) is available when the uri task runs. 2) Replaced failed_when on uri task with ignore_errors: true (failed_when only evaluates HTTP status codes; a connection-refused error raises an exception before failed_when is reached, crashing the play). 3) Added 'when: redis_cluster_case2_health_check_result is not failed' to the copy task so the write is skipped gracefully when the endpoint is unavailable."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/install.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/install.yml",
+      "status": "complete",
+      "description": "Convert install.pp to Ansible tasks: install redis package, deploy redis.conf.j2 template to /etc/redis/redis.conf, ensure redis service is running and enabled, create /var/log/redis directory (owner: redis, group: redis, mode: 0755)",
+      "notes": "Added 'Ensure Redis PID directory exists' task (/var/run/redis, owner redis:redis 0755) between log-dir and template tasks. The pidfile directive in redis.conf.j2 references this directory; without it Redis fails to start on distros that do not pre-create /var/run/redis via tmpfiles.d."
+    },
+    {
+      "category": "structure",
+      "source_path": "metadata.json",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/meta/main.yml",
+      "status": "complete",
+      "description": "Role metadata file \u2014 sourced from metadata.json",
+      "notes": "Converted from metadata.json. Added galaxy_tags for redis, cache, cluster, etc."
+    },
+    {
+      "category": "structure",
+      "source_path": "defaults/main.yml",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/meta/argument_specs.yml",
+      "status": "complete",
+      "description": "Role argument specs for fail-fast parameter validation \u2014 generate after defaults/main.yml is written. Covers: redis_port (int), redis_password (string, vaulted), maxmemory_mb (int), maxmemory_policy (string)",
+      "notes": "Generated from defaults/main.yml. Includes AAP credential variables (redis_password, redis_service_token, secret_store_url, secret_store_token) as required with no defaults."
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/handlers/main.yml",
+      "status": "complete",
+      "description": "Handlers file \u2014 notify redis service restart when configuration changes (triggered by template task in install.yml)",
+      "notes": "Handler for redis service restart on config change."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/molecule.yml",
+      "status": "complete",
+      "description": "Molecule scenario configuration \u2014 delegated driver, local connection (not docker/podman)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/converge.yml",
+      "status": "complete",
+      "description": "Molecule converge playbook \u2014 runs the role via a single ansible.builtin.include_role task",
+      "notes": "Single include_role task for profile_redis_cluster_case2. No faked filesystem state."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/verify.yml",
+      "status": "complete",
+      "description": "Molecule verify playbook \u2014 checks real production paths: /etc/redis/redis.conf exists, /var/log/redis/ dir (owner redis, mode 0755), /var/lib/redis/health_check.json (owner redis, mode 0644), /opt/myapp/version.txt contains 2.1.0, redis service running, redis-cli PING returns PONG",
+      "notes": "Split into 2 plays: (1) filesystem artefacts \u2014 stat/assert/slurp for redis.conf, log dir, health_check.json, myapp dir and version.txt; (2) service facts assert redis running + wait_for port 6379."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/create.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance create playbook (delegated driver)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/destroy.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance destroy playbook (delegated driver)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/meta/main.yml",
+      "status": "complete",
+      "description": "Created standard meta/main.yml",
+      "notes": ""
+    }
+  ]
+}

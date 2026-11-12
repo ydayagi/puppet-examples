@@ -1,0 +1,8 @@
+[
+  {
+    "name": "profile_redis_cluster_case3",
+    "path": ".",
+    "description": "Redis cluster node profile (v3.1.0) that installs and configures a Redis server, manages a templated redis.conf, deploys an internal application artifact, polls a health-check endpoint, manages cron-based backup scheduling, writes proprietary config entries, retrieves secrets from an internal secret store, and registers the node with a proprietary Enterprise Scheduler platform.",
+    "technology": "Puppet"
+  }
+]

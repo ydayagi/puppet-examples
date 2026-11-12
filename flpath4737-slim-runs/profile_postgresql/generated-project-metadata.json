@@ -1,0 +1,8 @@
+[
+  {
+    "name": "profile_postgresql",
+    "path": ".",
+    "description": "PostgreSQL 16 profile that configures the PGDG APT repository, installs versioned PostgreSQL packages, manages the postgresql service, deploys a companion application artifact, manages proprietary config entries, registers the node with an Enterprise Scheduler, and schedules a nightly backup cron job.",
+    "technology": "Puppet"
+  }
+]

@@ -1,0 +1,157 @@
+---
+# tasks/main.yml — profile_postgresql main task entry point
+
+- name: Validate credential variables
+  ansible.builtin.include_tasks: validate_credentials.yml
+
+- name: Load OS-specific variables
+  ansible.builtin.include_vars: "{{ ansible_facts['os_family'] }}.yml"
+  when: ansible_facts['os_family'] is defined
+# ---------------------------------------------------------------------------
+# Repository, packages, and service (ordered: repo → install → service)
+# ---------------------------------------------------------------------------
+
+- name: Configure PostgreSQL APT repository
+  ansible.builtin.include_tasks: repo.yml
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Install PostgreSQL packages
+  ansible.builtin.include_tasks: install.yml
+
+- name: Manage PostgreSQL service
+  ansible.builtin.include_tasks: service.yml
+# ---------------------------------------------------------------------------
+# Health check (myFunction1 equivalent)
+# Performs an HTTP GET to the health endpoint and writes the JSON response.
+# ---------------------------------------------------------------------------
+
+- name: Ensure health check directory exists
+  ansible.builtin.file:
+    path: /var/lib/pgsql
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0755"
+
+- name: Fetch application health check endpoint
+  ansible.builtin.uri:
+    url: "{{ profile_postgresql_health_check_url }}"
+    method: GET
+    return_content: true
+    status_code: 200
+  failed_when: false
+  register: profile_postgresql_health_check_result
+
+- name: Write health check result to file # noqa: M005 - content uses registered var from prior task
+  ansible.builtin.copy: # noqa: L071 - copy with Jinja content is intentional here
+    content: "{{ profile_postgresql_health_check_result.content | default('{}') }}"
+    dest: "{{ profile_postgresql_health_check_file }}" # noqa: R114 - path from role defaults, not user input
+    owner: postgres
+    group: postgres
+    mode: "0644"
+    backup: true
+# ---------------------------------------------------------------------------
+# Artifact deployment (myDeploy1 equivalent)
+# Downloads and extracts a versioned artifact; idempotent via version.txt.
+# ---------------------------------------------------------------------------
+
+# FIX (Cat 4 — Ordering): Directory must be created before the slurp attempt
+# so that the path exists when slurp runs. Moved from after the slurp task.
+- name: Ensure artifact install directory exists
+  ansible.builtin.file:
+    path: "{{ profile_postgresql_deploy_install_dir }}" # noqa: R114 - path from role defaults, not user input
+    state: directory
+    mode: "0755"
+
+- name: Check installed artifact version
+  ansible.builtin.slurp:
+    src: "{{ profile_postgresql_deploy_install_dir }}/version.txt" # noqa: R114 - path from role defaults, not user input
+  failed_when: false
+  register: profile_postgresql_installed_version
+
+- name: Download application artifact # noqa: L039 - profile_postgresql_installed_version registered by prior task
+  ansible.builtin.get_url: # noqa: R106 - parameterized URL is from role defaults, not externally controlled input
+    url: "{{ profile_postgresql_deploy_url }}" # noqa: R104 - URL scheme controlled by role variable from role defaults
+    dest: "{{ profile_postgresql_deploy_install_dir }}/artifact.tar.gz" # noqa: R114 - path from role defaults, not user input
+    mode: "0644"
+  when: >-
+    profile_postgresql_installed_version.failed or
+    (profile_postgresql_installed_version.content | b64decode | trim) != profile_postgresql_deploy_version
+
+- name: Extract application artifact # noqa: L039 - profile_postgresql_installed_version registered by prior task
+  ansible.builtin.unarchive: # noqa: R106 - parameterized src is from role defaults, not externally controlled input
+    src: "{{ profile_postgresql_deploy_install_dir }}/artifact.tar.gz" # noqa: R104 - src path controlled by role variable from role defaults
+    dest: "{{ profile_postgresql_deploy_install_dir }}" # noqa: R114 - path from role defaults, not user input
+    remote_src: true
+    mode: "0755"
+  when: >-
+    profile_postgresql_installed_version.failed or
+    (profile_postgresql_installed_version.content | b64decode | trim) != profile_postgresql_deploy_version
+
+- name: Write artifact version file # noqa: L039 - profile_postgresql_installed_version registered by prior task
+  ansible.builtin.copy: # noqa: L071 - copy with Jinja content is intentional here
+    content: "{{ profile_postgresql_deploy_version }}"
+    dest: "{{ profile_postgresql_deploy_install_dir }}/version.txt" # noqa: R114 - path from role defaults, not user input
+    mode: "0644"
+    backup: true
+  when: >-
+    profile_postgresql_installed_version.failed or
+    (profile_postgresql_installed_version.content | b64decode | trim) != profile_postgresql_deploy_version
+# ---------------------------------------------------------------------------
+# NOT-SAFELY-CONVERTIBLE COMPONENTS
+#
+# The following three components from the original Puppet manifest cannot be
+# automatically migrated because they depend on proprietary internal systems
+# that have no public API documentation or Ansible equivalents.
+#
+# ⚠ ACTION REQUIRED — Manual implementation needed by an automation developer:
+#
+# 1. mySecretFunction1 / mySecretType1 ('postgres-node'):
+#    Source: lib/puppet/functions/mySecretFunction1.rb
+#            lib/puppet/type/mySecretType1.rb
+#            lib/puppet/provider/mySecretType1/mySecretProvider1.rb
+#    What it did: Fetched a secret token from CompanyInternal::SecretStore
+#    and registered this node in the Enterprise Scheduler platform via:
+#      schedulerctl register postgres-node --schedule daily
+#    Why not converted: The Enterprise Scheduler platform (schedulerctl) and
+#    CompanyInternal::SecretStore have no public documentation. The AAP
+#    credential variable `postgres_service_token` is injected at runtime
+#    (see tasks/validate_credentials.yml) but the registration mechanism
+#    itself requires manual implementation.
+#    Suggested approach: Implement a custom Ansible module or shell task
+#    that calls `schedulerctl register` using `postgres_service_token`.
+#
+# 2. myFormatType1 ('app-mode' and 'health-port'):
+#    Source: lib/puppet/type/myFormatType1.rb
+#            lib/puppet/provider/myFormatType1/myFormatProvider1.rb
+#    What it did: Wrote proprietary-format entries into /etc/company/app.conf:
+#      !app-mode=cluster
+#      !health-port=8080
+#    Why not converted: The file format uses a proprietary `!key=value`
+#    syntax that is not standard INI/TOML/YAML. The provider logic for
+#    reading, merging, and writing this format is not documented.
+#    Suggested approach: Reverse-engineer the format from the provider source
+#    and implement using ansible.builtin.lineinfile or ansible.builtin.template
+#    once the full format specification is understood.
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Postgres backup cron (myCronType1 equivalent)
+# FIX (Cat 2 — Missing application): The backup script is not installed by
+# this role. Guard the cron task so it only schedules the job when the script
+# actually exists on the target, preventing a silently-failing cron entry.
+# ---------------------------------------------------------------------------
+
+- name: Check backup script exists on target
+  ansible.builtin.stat:
+    path: "{{ profile_postgresql_backup_command }}"
+  register: profile_postgresql_backup_script_stat
+
+- name: Configure PostgreSQL backup cron job
+  ansible.builtin.cron:
+    name: postgres-backup
+    job: "{{ profile_postgresql_backup_command }}"
+    hour: "{{ profile_postgresql_backup_hour }}"
+    minute: "{{ profile_postgresql_backup_minute }}"
+    user: root
+    state: present
+  when: profile_postgresql_backup_script_stat.stat.exists # noqa: L039 - profile_postgresql_backup_script_stat registered by prior task

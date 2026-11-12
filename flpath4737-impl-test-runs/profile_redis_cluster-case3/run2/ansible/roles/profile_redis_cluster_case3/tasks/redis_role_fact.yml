@@ -1,0 +1,23 @@
+---
+# Reproduces the redis_role custom Puppet fact (lib/facter/redis_role.rb).
+# Determines whether this node is a Redis primary or replica by checking
+# /etc/redis/conf.d/replica.conf for the 'replicaof' directive.
+
+- name: Check if replica.conf exists
+  ansible.builtin.stat:
+    path: /etc/redis/conf.d/replica.conf
+  register: profile_redis_cluster_case3_replica_conf_stat
+
+- name: Read replica.conf if present # noqa: L039 - profile_redis_cluster_case3_replica_conf_stat registered by prior task
+  ansible.builtin.slurp:
+    src: /etc/redis/conf.d/replica.conf
+  when: profile_redis_cluster_case3_replica_conf_stat.stat.exists
+  register: profile_redis_cluster_case3_replica_conf_content
+
+- name: Set redis_role fact # noqa: L039 - profile_redis_cluster_case3_replica_conf_content and profile_redis_cluster_case3_replica_conf_stat registered by prior tasks
+  ansible.builtin.set_fact:
+    redis_role: >-
+      {{ 'replica' if (profile_redis_cluster_case3_replica_conf_stat.stat.exists and
+        (profile_redis_cluster_case3_replica_conf_content.content | default('') | b64decode)
+        is search('replicaof'))
+        else 'primary' }}

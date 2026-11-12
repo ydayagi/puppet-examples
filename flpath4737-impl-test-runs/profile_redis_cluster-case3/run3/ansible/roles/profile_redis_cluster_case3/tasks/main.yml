@@ -1,0 +1,18 @@
+---
+# Converted from: ../../site/role/manifests/redis_cluster.pp
+# Entry point for the profile_redis_cluster_case3 role.
+# Execution order mirrors Puppet ordering:
+#   1. Validate AAP credentials
+#   2. Base OS profile (NTP, syslog, utils)
+#   3. Redis cluster configuration
+
+- name: Validate credential variables
+  ansible.builtin.include_tasks: validate_credentials.yml
+
+- name: Apply base OS profile
+  ansible.builtin.include_tasks: base.yml
+  when: ansible_facts['kernel'] == 'Linux'
+
+- name: Apply Redis cluster profile
+  ansible.builtin.include_tasks: redis_cluster.yml
+  when: ansible_facts['kernel'] == 'Linux'

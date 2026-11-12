@@ -1,0 +1,29 @@
+---
+# Converted from: lib/facter/redis_role.rb
+# Determines whether this node is a Redis 'replica' or 'primary' by checking
+# for /etc/redis/conf.d/replica.conf and the presence of 'replicaof' within it.
+
+- name: Check if Redis replica config file exists
+  ansible.builtin.stat:
+    path: /etc/redis/conf.d/replica.conf
+  register: profile_redis_cluster_case3_replica_conf_stat
+
+- name: Read Redis replica config file content # noqa: L039 - profile_redis_cluster_case3_replica_conf_stat registered by prior task
+  ansible.builtin.slurp:
+    src: /etc/redis/conf.d/replica.conf
+  when: profile_redis_cluster_case3_replica_conf_stat.stat.exists
+  register: profile_redis_cluster_case3_replica_conf_content
+
+- name: Set redis_role fact to replica # noqa: L039 - profile_redis_cluster_case3_replica_conf_content and profile_redis_cluster_case3_replica_conf_stat registered by prior tasks
+  ansible.builtin.set_fact:
+    redis_role: replica
+  when:
+    - profile_redis_cluster_case3_replica_conf_stat.stat.exists
+    - profile_redis_cluster_case3_replica_conf_content['content'] | b64decode is search('replicaof')
+
+- name: Set redis_role fact to primary # noqa: L039 - profile_redis_cluster_case3_replica_conf_content and profile_redis_cluster_case3_replica_conf_stat registered by prior tasks
+  ansible.builtin.set_fact:
+    redis_role: primary
+  when: >-
+    not profile_redis_cluster_case3_replica_conf_stat.stat.exists or
+    not (profile_redis_cluster_case3_replica_conf_content['content'] | default('') | b64decode is search('replicaof'))

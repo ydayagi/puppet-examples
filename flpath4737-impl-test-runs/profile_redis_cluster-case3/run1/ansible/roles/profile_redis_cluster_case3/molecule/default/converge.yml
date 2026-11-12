@@ -1,0 +1,13 @@
+---
+- name: Converge # noqa: R401 - audit rule; inbound transfers are in the included role, not this converge playbook
+  hosts: all
+  gather_facts: true
+  vars:
+    # Stub credential variables required by validate_credentials.yml.
+    # In production these are injected by the AAP credential type.
+    redis_password: "MoleculeTestPassword123!"
+    redis_service_token: "molecule-stub-token"
+  tasks:
+    - name: Include profile_redis_cluster_case3
+      ansible.builtin.include_role: # noqa: L038 - role-under-test resolves at runtime; unresolved only when scanned in isolation
+        name: profile_redis_cluster_case3

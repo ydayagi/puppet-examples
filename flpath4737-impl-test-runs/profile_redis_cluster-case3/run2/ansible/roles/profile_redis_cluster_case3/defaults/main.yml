@@ -1,0 +1,26 @@
+---
+# Redis cluster configuration defaults
+profile_redis_cluster_case3_redis_port: 6379
+# SECURITY: redis_password is injected at runtime via AAP credential type.
+# The variable 'redis_password' is available as an AAP credential variable.
+# Do NOT set a default here — it must come from the AAP credential.
+profile_redis_cluster_case3_redis_bind: 0.0.0.0
+profile_redis_cluster_case3_maxmemory_mb: 2048
+profile_redis_cluster_case3_maxmemory_policy: allkeys-lru
+profile_redis_cluster_case3_appendonly: true
+profile_redis_cluster_case3_appendfsync: everysec
+# myapp deployment settings
+profile_redis_cluster_case3_myapp_version: 2.1.0
+profile_redis_cluster_case3_myapp_url: http://artifacts.internal/myapp-2.1.0.tar.gz
+profile_redis_cluster_case3_myapp_install_dir: /opt/myapp
+# Health check settings
+profile_redis_cluster_case3_health_check_url: http://localhost:8080/health
+profile_redis_cluster_case3_health_check_dest: /var/lib/redis/health_check.json
+# Redis log directory
+profile_redis_cluster_case3_log_dir: /var/log/redis
+# Base OS management toggles
+profile_redis_cluster_case3_manage_ntp: true
+profile_redis_cluster_case3_manage_syslog: true
+profile_redis_cluster_case3_manage_utils: true
+# Secure logging toggle — set to false only for debugging
+profile_redis_cluster_case3_secure_logging: true

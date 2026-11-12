@@ -1,0 +1,7 @@
+========================================
+  Managed by Ansible
+  Hostname: {{ ansible_fqdn }}
+  OS:       {{ ansible_distribution }} {{ ansible_distribution_version }}
+  Kernel:   {{ ansible_kernel }}
+  Uptime:   {{ ansible_uptime_seconds | int // 86400 }} days
+========================================

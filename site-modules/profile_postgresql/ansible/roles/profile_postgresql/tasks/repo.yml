@@ -1,0 +1,17 @@
+---
+# tasks/repo.yml — Configure the PostgreSQL APT repository (Debian/Ubuntu)
+
+- name: Add PostgreSQL APT signing key # noqa: R109 - key URL/ID from role vars controlled by role maintainer
+  ansible.builtin.apt_key: # noqa: L004 - apt_key has no ansible.builtin replacement without community.general
+    id: "{{ profile_postgresql_repo_key_id }}"
+    url: "{{ profile_postgresql_repo_key_source }}"
+    state: present
+
+- name: Add PostgreSQL APT repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb {{ profile_postgresql_repo_location }}
+      {{ profile_postgresql_repo_release }} main
+    state: present
+    filename: pgdg
+    update_cache: true

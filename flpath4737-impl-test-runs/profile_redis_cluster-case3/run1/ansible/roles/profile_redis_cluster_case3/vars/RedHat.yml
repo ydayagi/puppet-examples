@@ -1,0 +1,8 @@
+---
+# RedHat OS-family specific variables (from base_utils/data/os/RedHat.yaml)
+profile_redis_cluster_case3_utility_packages:
+  - vim-enhanced
+  - wget
+  - curl
+  - jq
+  - bind-utils

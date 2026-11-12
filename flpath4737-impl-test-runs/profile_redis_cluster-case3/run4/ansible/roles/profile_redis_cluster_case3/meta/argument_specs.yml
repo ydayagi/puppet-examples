@@ -1,0 +1,116 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure a Redis cluster node
+    description:
+      - Installs Redis, configures it with password protection and memory limits, manages the Redis log directory, deploys the myapp companion application, 
+        writes CompanyApp settings entries, schedules a nightly Redis backup cron job, and writes a health-check JSON file from a live HTTP call.
+    options:
+      profile_redis_cluster_case3_redis_port:
+        type: int
+        required: false
+        default: 6379
+        description: TCP port Redis listens on.
+      profile_redis_cluster_case3_maxmemory_mb:
+        type: int
+        required: false
+        default: 2048
+        description: Maximum memory Redis may use, in megabytes.
+      profile_redis_cluster_case3_maxmemory_policy:
+        type: str
+        required: false
+        default: allkeys-lru
+        description: Redis eviction policy when maxmemory is reached.
+      profile_redis_cluster_case3_redis_bind:
+        type: str
+        required: false
+        default: 0.0.0.0
+        description: IP address Redis binds to.
+      profile_redis_cluster_case3_appendonly:
+        type: bool
+        required: false
+        default: true
+        description: Whether to enable Redis append-only persistence.
+      profile_redis_cluster_case3_appendfsync:
+        type: str
+        required: false
+        default: everysec
+        description: >-
+          Redis appendfsync policy (always, everysec, or no).
+      profile_redis_cluster_case3_log_dir:
+        type: str
+        required: false
+        default: /var/log/redis
+        description: Directory for Redis log files.
+      profile_redis_cluster_case3_myapp_version:
+        type: str
+        required: false
+        default: 2.1.0
+        description: Version of the myapp companion application to deploy.
+      profile_redis_cluster_case3_myapp_url:
+        type: str
+        required: false
+        default: http://artifacts.internal/myapp-2.1.0.tar.gz
+        description: URL of the myapp artifact tarball.
+      profile_redis_cluster_case3_myapp_install_dir:
+        type: str
+        required: false
+        default: /opt/myapp
+        description: Directory into which myapp is extracted.
+      profile_redis_cluster_case3_company_conf_file:
+        type: str
+        required: false
+        default: /etc/company/app.conf
+        description: Path to the proprietary CompanyApp settings file.
+      profile_redis_cluster_case3_health_check_url:
+        type: str
+        required: false
+        default: http://localhost:8080/health
+        description: URL polled to populate the health-check JSON file.
+      profile_redis_cluster_case3_health_check_json:
+        type: str
+        required: false
+        default: /var/lib/redis/health_check.json
+        description: Destination path for the health-check JSON file.
+      profile_redis_cluster_case3_cluster_nodes:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: >-
+          List of Redis cluster peer hostnames. Replaces the PuppetDB query
+          used in the original Puppet manifest. Override in
+          group_vars/redis_cluster.yml with actual peer hostnames, or use a
+          dynamic inventory group.
+      profile_redis_cluster_case3_secure_logging:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          When true, tasks that handle secret credentials suppress their output
+          via no_log. Set to false only for debugging.
+      redis_password:
+        type: str
+        required: true
+        description: >-
+          Redis requirepass value. Injected at runtime by the AAP credential
+          type; do not set a default. Must be provided via an AAP credential.
+      redis_service_token:
+        type: str
+        required: true
+        description: >-
+          Service token for the proprietary Enterprise Scheduler. Injected at
+          runtime by the AAP credential type. See the NOT SAFELY CONVERTIBLE
+          note in tasks/init.yml for usage guidance.
+      auth_token:
+        type: str
+        required: true
+        description: >-
+          Generic authentication token injected by the AAP credential type.
+          Injected at runtime; do not set a default.
+      secret_store_url:
+        type: str
+        required: true
+        description: >-
+          URL of the internal secret store. Injected at runtime by the AAP
+          credential type.

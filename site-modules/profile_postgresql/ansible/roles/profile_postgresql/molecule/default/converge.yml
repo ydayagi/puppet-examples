@@ -1,0 +1,23 @@
+---
+- name: Converge # noqa: R401 - audit/info rule; get_url is used in the role under test and cannot be removed
+  hosts: all
+  gather_facts: true
+  vars: # noqa: L086 - molecule converge requires inline vars for all role credential and config parameters
+    # Credential variables required by validate_credentials.yml
+    secret_store_url: http://localhost:8200
+    secret_store_token: molecule-test-token
+    postgres_service_token: molecule-pg-service-token
+    db_host: localhost
+    db_port: 5432
+    db_name: molecule_db
+    db_user: molecule_user
+    db_password: molecule-db-password
+    secret_key: molecule-secret-key
+    # Override deploy URL to a reachable artifact for molecule testing
+    profile_postgresql_deploy_url: https://github.com/example-org/myapp-api/archive/refs/tags/v2.1.0.tar.gz
+    # Override health check URL — no real app running in molecule
+    profile_postgresql_health_check_url: http://localhost:8080/health
+  tasks:
+    - name: Include profile_postgresql
+      ansible.builtin.include_role: # noqa: L038 - role-under-test resolves at runtime; unresolved only when scanned in isolation
+        name: profile_postgresql

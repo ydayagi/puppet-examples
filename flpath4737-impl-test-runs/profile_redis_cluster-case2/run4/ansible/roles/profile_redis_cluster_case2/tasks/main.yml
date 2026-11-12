@@ -1,0 +1,13 @@
+---
+# Converted from: ../../site/role/manifests/redis_cluster.pp
+# Entry point for the profile_redis_cluster_case2 role.
+# Ordering mirrors Puppet: base profile completes before Redis profile begins.
+
+- name: Validate credential variables
+  ansible.builtin.include_tasks: validate_credentials.yml
+
+- name: Apply base OS profile (NTP, syslog, utils)
+  ansible.builtin.include_tasks: base.yml
+
+- name: Apply Redis cache profile
+  ansible.builtin.include_tasks: cache_redis.yml

@@ -1,0 +1,105 @@
+---
+argument_specs:
+  main:
+    short_description: Configure a Redis node with authentication, memory limits, and AOF persistence
+    description:
+      - >-
+        Installs and configures Redis (primary or replica) with authentication, memory limits,
+        and AOF persistence. Deploys a companion myapp artifact, fetches a health-check JSON
+        from a local HTTP endpoint, and manages the Redis log directory.
+      - >-
+        Migrated from Puppet profile_redis_cluster_case2. The mySecretType1/schedulerctl
+        Enterprise Scheduler registration and mySecretFunction1 secret-store integration
+        are NOT SAFELY CONVERTIBLE and require manual developer action before deployment.
+    options:
+      redis_cluster_case2_redis_port:
+        type: int
+        required: false
+        default: 6379
+        description: TCP port Redis listens on.
+      redis_cluster_case2_maxmemory_mb:
+        type: int
+        required: false
+        default: 2048
+        description: Maximum memory Redis may use, in megabytes (rendered as e.g. 2048mb in redis.conf).
+      redis_cluster_case2_maxmemory_policy:
+        type: str
+        required: false
+        default: allkeys-lru
+        description: Redis maxmemory eviction policy (e.g. allkeys-lru, volatile-lru, noeviction).
+      redis_cluster_case2_myapp_version:
+        type: str
+        required: false
+        default: 2.1.0
+        description: Version string for the myapp companion application artifact.
+      redis_cluster_case2_myapp_url:
+        type: str
+        required: false
+        default: http://artifacts.internal/myapp-2.1.0.tar.gz
+        description: URL from which the myapp tarball is downloaded.
+      redis_cluster_case2_myapp_install_dir:
+        type: str
+        required: false
+        default: /opt/myapp
+        description: Filesystem path where myapp is extracted and installed.
+      redis_cluster_case2_log_dir:
+        type: str
+        required: false
+        default: /var/log/redis
+        description: Directory for Redis log files; created with owner redis:redis mode 0755.
+      redis_cluster_case2_data_dir:
+        type: str
+        required: false
+        default: /var/lib/redis
+        description: Redis data directory (used in redis.conf dir directive).
+      redis_cluster_case2_health_check_url:
+        type: str
+        required: false
+        default: http://localhost:8080/health
+        description: URL of the local health-check HTTP endpoint polled during role execution.
+      redis_cluster_case2_health_check_file:
+        type: str
+        required: false
+        default: /var/lib/redis/health_check.json
+        description: Destination path for the health-check JSON file written by the role.
+      redis_cluster_case2_cluster_group:
+        type: str
+        required: false
+        default: redis_cluster
+        description: >-
+          Ansible inventory group name whose members are treated as Redis cluster peers.
+          Replaces the PuppetDB query used in the original Puppet manifest.
+      redis_cluster_case2_secure_logging:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          When true, tasks that handle secret credentials (redis_password) suppress their
+          output via no_log. Set to false only for debugging — this will expose secrets
+          in job logs.
+      redis_password:
+        type: str
+        required: true
+        description: >-
+          Redis AUTH password. Injected at runtime by the AAP credential type
+          (profile_redis_cluster_case2_credentials). Must NOT be stored in plaintext
+          in inventory or vars files — use ansible-vault or an AAP credential.
+      redis_service_token:
+        type: str
+        required: true
+        description: >-
+          Service token for the Enterprise Scheduler registration (mySecretType1).
+          Injected at runtime by the AAP credential type. Replaces the
+          mySecretFunction1('redis_service_token') call from the original Puppet manifest.
+      secret_store_url:
+        type: str
+        required: true
+        description: >-
+          URL of the proprietary CompanyInternal::SecretStore backend.
+          Injected at runtime by the AAP credential type.
+      secret_store_token:
+        type: str
+        required: true
+        description: >-
+          Authentication token for the CompanyInternal::SecretStore backend.
+          Injected at runtime by the AAP credential type.

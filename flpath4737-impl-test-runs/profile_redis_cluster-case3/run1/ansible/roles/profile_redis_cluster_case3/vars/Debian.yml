@@ -1,0 +1,8 @@
+---
+# Debian OS-family specific variables (from base_utils/data/os/Debian.yaml)
+profile_redis_cluster_case3_utility_packages:
+  - vim
+  - wget
+  - curl
+  - jq
+  - dnsutils

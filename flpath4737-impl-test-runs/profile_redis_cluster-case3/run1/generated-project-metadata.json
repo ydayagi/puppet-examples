@@ -1,0 +1,8 @@
+[
+  {
+    "name": "profile_redis_cluster_case3",
+    "path": "manifests",
+    "description": "Puppet profile module (v3.1.0) that provisions a Redis cluster node, handling installation and configuration, application artifact deployment, health-check polling, cron-based backup scheduling, proprietary config-file management, and registration with an internal Enterprise Scheduler platform.",
+    "technology": "Puppet"
+  }
+]

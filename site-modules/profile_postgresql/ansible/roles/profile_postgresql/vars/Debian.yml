@@ -1,0 +1,13 @@
+---
+# Debian/Ubuntu-specific overrides for profile_postgresql
+# These values are loaded via include_vars in tasks/main.yml
+# Package names use the version variable interpolated at runtime
+profile_postgresql_package_names:
+  - postgresql-{{ profile_postgresql_version }}
+  - postgresql-contrib-{{ profile_postgresql_version }}
+profile_postgresql_service_name: postgresql
+# APT repository configuration
+profile_postgresql_repo_location: https://apt.postgresql.org/pub/repos/apt
+profile_postgresql_repo_release: "{{ ansible_facts['lsb']['codename'] }}-pgdg"
+profile_postgresql_repo_key_id: B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+profile_postgresql_repo_key_source: https://www.postgresql.org/media/keys/ACCC4CF8.asc

@@ -1,0 +1,118 @@
+---
+# Play 1: Verify filesystem state — directories, files, and content
+- name: Verify filesystem state
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Stat filesystem paths
+      ansible.builtin.stat:
+        path: "{{ item_path }}" # noqa: R114 - paths are fixed literals defined in this task list, not user input
+      loop:
+        - /var/log/redis
+        - /var/lib/redis/health_check.json
+        - /opt/myapp
+        - /opt/myapp/version.txt
+      loop_control:
+        loop_var: item_path
+      register: path_stat_results
+
+    - name: Assert all expected paths exist
+      ansible.builtin.assert:
+        that:
+          - item_stat['stat']['exists']
+        fail_msg: "Expected path does not exist"
+      loop: "{{ path_stat_results['results'] }}"
+      loop_control:
+        loop_var: item_stat
+
+    - name: Assert /var/log/redis is a directory with correct ownership and mode
+      ansible.builtin.assert:
+        that:
+          - path_stat_results['results'][0]['stat']['isdir']
+          - path_stat_results['results'][0]['stat']['pw_name'] == 'redis'
+          - path_stat_results['results'][0]['stat']['gr_name'] == 'redis'
+          - path_stat_results['results'][0]['stat']['mode'] == '0755'
+        fail_msg: "/var/log/redis directory ownership or mode is incorrect"
+
+    - name: Assert /var/lib/redis/health_check.json has correct ownership and mode
+      ansible.builtin.assert:
+        that:
+          - path_stat_results['results'][1]['stat']['isreg']
+          - path_stat_results['results'][1]['stat']['pw_name'] == 'redis'
+          - path_stat_results['results'][1]['stat']['gr_name'] == 'redis'
+          - path_stat_results['results'][1]['stat']['mode'] == '0644'
+        fail_msg: "/var/lib/redis/health_check.json ownership or mode is incorrect"
+
+    - name: Assert /opt/myapp is a directory
+      ansible.builtin.assert:
+        that:
+          - path_stat_results['results'][2]['stat']['isdir']
+        fail_msg: "/opt/myapp is not a directory"
+
+    - name: Assert /opt/myapp/version.txt is a regular file
+      ansible.builtin.assert:
+        that:
+          - path_stat_results['results'][3]['stat']['isreg']
+          - path_stat_results['results'][3]['stat']['size'] > 0
+        fail_msg: "/opt/myapp/version.txt is missing or empty"
+
+    - name: Read myapp version file
+      ansible.builtin.slurp:
+        src: /opt/myapp/version.txt
+      register: myapp_version_slurp
+
+    - name: Assert myapp version is 2.1.0
+      ansible.builtin.assert:
+        that:
+          - (myapp_version_slurp['content'] | b64decode | trim) == '2.1.0'
+        fail_msg: "myapp version.txt does not contain expected version 2.1.0"
+
+    - name: Read health_check.json content
+      ansible.builtin.slurp:
+        src: /var/lib/redis/health_check.json
+      register: health_check_slurp
+
+    - name: Assert health_check.json contains valid JSON
+      ansible.builtin.assert:
+        that:
+          - (health_check_slurp['content'] | b64decode | length) > 0
+          - (health_check_slurp['content'] | b64decode | from_json) is defined
+        fail_msg: "/var/lib/redis/health_check.json is empty or not valid JSON"
+
+# Play 2: Verify service state and network endpoints
+- name: Verify service and network state
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Redis service is active and enabled
+      ansible.builtin.assert:
+        that:
+          - "'redis.service' in ansible_facts['services']"
+          - ansible_facts['services']['redis.service']['state'] == 'running'
+          - ansible_facts['services']['redis.service']['status'] == 'enabled'
+        fail_msg: "Redis service is not running or not enabled"
+
+    - name: Assert Redis is listening on port 6379
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 6379
+        state: started
+        timeout: 10
+
+    - name: Assert health check endpoint is reachable
+      ansible.builtin.uri:
+        url: http://localhost:8080/health
+        method: GET
+        return_content: true
+        status_code: 200
+      register: health_endpoint_result
+
+    - name: Assert health endpoint returned valid JSON
+      ansible.builtin.assert:
+        that:
+          - health_endpoint_result['status'] == 200
+          - health_endpoint_result['content'] | length > 0
+        fail_msg: "Health endpoint did not return a valid 200 response"

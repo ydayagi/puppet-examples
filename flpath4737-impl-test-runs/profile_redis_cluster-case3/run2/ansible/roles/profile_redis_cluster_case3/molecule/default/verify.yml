@@ -1,0 +1,188 @@
+---
+# Play 1: Verify services are running
+- name: Verify services
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert redis service is active and running
+      ansible.builtin.assert:
+        that:
+          - "'redis.service' in ansible_facts['services']"
+          - "ansible_facts['services']['redis.service']['state'] == 'running'"
+        fail_msg: "redis.service is not running"
+
+    - name: Assert chronyd service is active and running
+      ansible.builtin.assert:
+        that:
+          - "'chronyd.service' in ansible_facts['services']"
+          - "ansible_facts['services']['chronyd.service']['state'] == 'running'"
+        fail_msg: "chronyd.service is not running"
+
+    - name: Assert rsyslog service is active and running
+      ansible.builtin.assert:
+        that:
+          - "'rsyslog.service' in ansible_facts['services']"
+          - "ansible_facts['services']['rsyslog.service']['state'] == 'running'"
+        fail_msg: "rsyslog.service is not running"
+
+    - name: Assert Redis is listening on port 6379
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 6379
+        state: started
+        timeout: 10
+
+# Play 2: Verify filesystem paths and file contents
+- name: Verify filesystem state
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Stat key paths
+      ansible.builtin.stat:
+        path: "{{ item_path }}"
+      loop:
+        - /var/lib/redis/health_check.json
+        - /var/log/redis
+        - /opt/myapp
+        - /opt/myapp/version.txt
+        - /etc/redis/redis.conf
+      loop_control:
+        loop_var: item_path
+      register: profile_redis_cluster_case3_path_stats
+
+    - name: Assert all key paths exist
+      ansible.builtin.assert:
+        that:
+          - item_stat['stat']['exists']
+        fail_msg: "Expected path does not exist"
+      loop: "{{ profile_redis_cluster_case3_path_stats['results'] }}"
+      loop_control:
+        loop_var: item_stat
+
+    - name: Assert /var/log/redis is a directory with correct mode
+      ansible.builtin.assert:
+        that:
+          - item_stat['stat']['isdir']
+          - item_stat['stat']['pw_name'] == 'redis'
+          - item_stat['stat']['gr_name'] == 'redis'
+          - item_stat['stat']['mode'] == '0755'
+        fail_msg: "Redis log directory has unexpected attributes"
+      loop: "{{ profile_redis_cluster_case3_path_stats['results'] }}"
+      loop_control:
+        loop_var: item_stat
+      when: item_stat['item'] == '/var/log/redis'
+
+    - name: Assert /var/lib/redis/health_check.json has correct ownership and mode
+      ansible.builtin.assert:
+        that:
+          - item_stat['stat']['pw_name'] == 'redis'
+          - item_stat['stat']['gr_name'] == 'redis'
+          - item_stat['stat']['mode'] == '0644'
+        fail_msg: "health_check.json has unexpected ownership or permissions"
+      loop: "{{ profile_redis_cluster_case3_path_stats['results'] }}"
+      loop_control:
+        loop_var: item_stat
+      when: item_stat['item'] == '/var/lib/redis/health_check.json'
+
+    - name: Assert /opt/myapp is a directory
+      ansible.builtin.assert:
+        that:
+          - item_stat['stat']['isdir']
+        fail_msg: "/opt/myapp is not a directory"
+      loop: "{{ profile_redis_cluster_case3_path_stats['results'] }}"
+      loop_control:
+        loop_var: item_stat
+      when: item_stat['item'] == '/opt/myapp'
+
+# Play 3: Verify file contents
+- name: Verify file contents
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Slurp key files for content verification
+      ansible.builtin.slurp:
+        src: "{{ item_src }}" # noqa: R114 - path is a fixed literal list, not user input
+      loop:
+        - /opt/myapp/version.txt
+        - /var/lib/redis/health_check.json
+        - /etc/redis/redis.conf
+      loop_control:
+        loop_var: item_src
+      register: profile_redis_cluster_case3_file_contents
+
+    - name: Assert myapp version.txt contains 2.1.0
+      ansible.builtin.assert:
+        that:
+          - item_file['content'] | b64decode | trim == '2.1.0'
+        fail_msg: "myapp version.txt does not contain expected version 2.1.0"
+      loop: "{{ profile_redis_cluster_case3_file_contents['results'] }}"
+      loop_control:
+        loop_var: item_file
+      when: item_file['item'] == '/opt/myapp/version.txt'
+
+    - name: Assert health_check.json is non-empty
+      ansible.builtin.assert:
+        that:
+          - (item_file['content'] | b64decode | trim | length) > 0
+        fail_msg: "health_check.json is empty"
+      loop: "{{ profile_redis_cluster_case3_file_contents['results'] }}"
+      loop_control:
+        loop_var: item_file
+      when: item_file['item'] == '/var/lib/redis/health_check.json'
+
+    - name: Assert redis.conf contains required directives # noqa: L073 - multi-line Jinja in vars block; indentation is cosmetic within scalar
+      ansible.builtin.assert:
+        that:
+          - item_directive in (item_file['content'] | b64decode)
+        fail_msg: "redis.conf is missing a required directive"
+      loop:
+        - "bind 0.0.0.0"
+        - "port 6379"
+        - "maxmemory 2048mb"
+        - "appendonly yes"
+        - "appendfsync everysec"
+      loop_control:
+        loop_var: item_directive
+      vars:
+        item_file: >-
+          {{ profile_redis_cluster_case3_file_contents['results']
+            | selectattr('item', 'equalto', '/etc/redis/redis.conf')
+            | first }}
+
+# Play 4: Verify health check endpoint and Enterprise Scheduler registration
+- name: Verify health check endpoint and scheduler registration
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Assert health check endpoint returns valid JSON
+      ansible.builtin.uri:
+        url: http://localhost:8080/health
+        method: GET
+        return_content: true
+        status_code: 200
+      register: profile_redis_cluster_case3_health_response
+
+    - name: Assert health check response body is non-empty
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case3_health_response['content'] | length > 0
+        fail_msg: "Health check endpoint returned empty body"
+
+    - name: Query Enterprise Scheduler registration for redis-node
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/schedulerctl
+          - query
+          - redis-node
+      changed_when: false
+      register: profile_redis_cluster_case3_scheduler_verify
+      failed_when: false
+
+    - name: Assert redis-node is registered with Enterprise Scheduler
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case3_scheduler_verify['rc'] == 0
+        fail_msg: "redis-node is not registered with the Enterprise Scheduler"

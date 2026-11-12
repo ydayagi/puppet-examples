@@ -1,0 +1,9 @@
+---
+- name: Validate credential variables
+  ansible.builtin.include_tasks: validate_credentials.yml
+
+- name: Run install tasks (Redis package, config, log directory)
+  ansible.builtin.include_tasks: install.yml
+
+- name: Run init tasks (health check, myapp, CompanyApp settings, cron)
+  ansible.builtin.include_tasks: init.yml

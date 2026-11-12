@@ -1,0 +1,8 @@
+---
+- name: Converge # noqa: R401 - inbound transfers are in deploy_myapp.yml within the included role; audit acknowledged
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Include profile_redis_cluster_case3
+      ansible.builtin.include_role: # noqa: L038 - role-under-test resolves at runtime; unresolved only when scanned in isolation
+        name: profile_redis_cluster_case3

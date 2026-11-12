@@ -1,0 +1,40 @@
+---
+# Converted from manifests/install.pp (puppet-redis class + log directory)
+
+- name: Install Redis package
+  ansible.builtin.package:
+    name: redis
+    state: present
+
+- name: Ensure Redis log directory exists
+  ansible.builtin.file:
+    path: "{{ redis_cluster_case2_log_dir }}" # noqa: R114 - path from role-defined variable, not user input
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0755"
+
+- name: Ensure Redis PID directory exists
+  ansible.builtin.file:
+    path: /var/run/redis
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0755"
+
+- name: Deploy Redis configuration
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: /etc/redis/redis.conf
+    owner: redis
+    group: redis
+    mode: "0640"
+    backup: true
+  notify: Restart redis
+  no_log: "{{ redis_cluster_case2_secure_logging }}"
+
+- name: Enable and start Redis service
+  ansible.builtin.service:
+    name: redis
+    state: started
+    enabled: true

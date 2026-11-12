@@ -1,0 +1,110 @@
+---
+argument_specs:
+  main:
+    short_description: Provision a Redis cluster node with base OS profile
+    description:
+      - Applies a base OS profile (utilities, NTP via chrony, syslog via rsyslog).
+      - Deploys and configures a Redis server with password protection, memory cap, and AOF persistence.
+      - Deploys a versioned myapp artifact from an internal artifact repository.
+      - Writes a health-check JSON file from a local health endpoint.
+    options:
+      profile_redis_cluster_case3_manage_motd:
+        type: bool
+        required: false
+        default: true
+        description: Whether to deploy the MOTD template to /etc/motd.
+      profile_redis_cluster_case3_motd_template:
+        type: str
+        required: false
+        default: motd.j2
+        description: Jinja2 template filename (relative to templates/) used for /etc/motd.
+      profile_redis_cluster_case3_utility_packages:
+        type: list
+        elements: str
+        required: false
+        default: []
+        description: >-
+          List of utility packages to install. Overridden per OS family via
+          vars/Debian.yml and vars/RedHat.yml.
+      profile_redis_cluster_case3_manage_ntp:
+        type: bool
+        required: false
+        default: true
+        description: Whether to install and enable the chrony NTP service.
+      profile_redis_cluster_case3_manage_syslog:
+        type: bool
+        required: false
+        default: true
+        description: Whether to install and enable the rsyslog syslog service.
+      profile_redis_cluster_case3_manage_utils:
+        type: bool
+        required: false
+        default: true
+        description: Whether to apply the base_utils tasks (MOTD and utility packages).
+      profile_redis_cluster_case3_redis_port:
+        type: int
+        required: false
+        default: 6379
+        description: TCP port Redis listens on.
+      redis_password:
+        type: str
+        required: true
+        description: >-
+          Redis requirepass password. Injected at runtime by the AAP credential type
+          'profile_redis_cluster_case3'. Must NOT be set in defaults or vars files.
+      profile_redis_cluster_case3_maxmemory_mb:
+        type: int
+        required: false
+        default: 2048
+        description: Redis maxmemory limit in megabytes.
+      profile_redis_cluster_case3_maxmemory_policy:
+        type: str
+        required: false
+        default: allkeys-lru
+        description: Redis maxmemory eviction policy.
+      profile_redis_cluster_case3_myapp_version:
+        type: str
+        required: false
+        default: 2.1.0
+        description: Version string of the myapp artifact to deploy.
+      profile_redis_cluster_case3_myapp_url:
+        type: str
+        required: false
+        default: http://artifacts.internal/myapp-2.1.0.tar.gz
+        description: >-
+          URL of the myapp artifact tarball. Must match ^https?://.
+      profile_redis_cluster_case3_myapp_install_dir:
+        type: str
+        required: false
+        default: /opt/myapp
+        description: Directory where the myapp artifact is extracted.
+      profile_redis_cluster_case3_redis_log_dir:
+        type: str
+        required: false
+        default: /var/log/redis
+        description: Directory for Redis log files.
+      profile_redis_cluster_case3_redis_health_check_file:
+        type: str
+        required: false
+        default: /var/lib/redis/health_check.json
+        description: Path where the health-check JSON response is written.
+      profile_redis_cluster_case3_health_check_url:
+        type: str
+        required: false
+        default: http://localhost:8080/health
+        description: URL of the local health-check endpoint polled during provisioning.
+      profile_redis_cluster_case3_secure_logging:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          Controls no_log on tasks that handle secrets (redis_password,
+          redis_service_token). Set to false only for debugging.
+      redis_service_token:
+        type: str
+        required: true
+        description: >-
+          Service token for the Enterprise Scheduler. Injected at runtime by the
+          AAP credential type 'profile_redis_cluster_case3'. Used by the
+          schedulerctl registration step (currently flagged NOT SAFELY CONVERTIBLE —
+          see tasks/profile_redis_cluster.yml for details).

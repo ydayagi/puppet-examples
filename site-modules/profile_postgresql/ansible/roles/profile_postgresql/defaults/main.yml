@@ -1,0 +1,31 @@
+---
+# PostgreSQL version to install
+profile_postgresql_version: "16"
+# PostgreSQL package names (version-interpolated at runtime)
+profile_postgresql_package_names:
+  - postgresql-{{ profile_postgresql_version }}
+  - postgresql-contrib-{{ profile_postgresql_version }}
+# Additional packages always installed
+profile_postgresql_extra_packages:
+  - libpq-dev
+# PostgreSQL service name
+profile_postgresql_service_name: postgresql
+# APT repository settings (Debian/Ubuntu only)
+profile_postgresql_repo_location: https://apt.postgresql.org/pub/repos/apt
+profile_postgresql_repo_release: "{{ ansible_facts['lsb']['codename'] }}-pgdg"
+profile_postgresql_repo_key_id: B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+profile_postgresql_repo_key_source: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+# Artifact deployment settings (myDeploy1 equivalent)
+profile_postgresql_deploy_name: myapp
+profile_postgresql_deploy_version: 2.1.0
+profile_postgresql_deploy_url: http://artifacts.internal/myapp-2.1.0.tar.gz
+profile_postgresql_deploy_install_dir: /opt/myapp
+# Health check endpoint (myFunction1 equivalent)
+profile_postgresql_health_check_url: http://localhost:8080/health
+profile_postgresql_health_check_file: /var/lib/pgsql/health_check.json
+# Postgres backup cron settings (myCronType1 equivalent)
+profile_postgresql_backup_command: /usr/local/bin/postgres-backup.sh
+profile_postgresql_backup_hour: "2"
+profile_postgresql_backup_minute: "30"
+# Secure logging toggle — set to false only for debugging
+profile_postgresql_secure_logging: true

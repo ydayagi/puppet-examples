@@ -1,0 +1,29 @@
+---
+galaxy_info:
+  role_name: profile_redis_cluster_case2
+  namespace: x2a
+  author: Platform Team
+  description: >-
+    Configures a Redis node (primary or replica) with authentication, memory limits,
+    and AOF persistence. Deploys a companion myapp artifact and manages a health-check
+    JSON file. Migrated from Puppet profile_redis_cluster_case2.
+  license: Apache-2.0
+  min_ansible_version: 2.14.0
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - redis
+    - cache
+    - datastore
+    - inmemory
+    - cluster
+    - persistence
+    - aof
+dependencies: []

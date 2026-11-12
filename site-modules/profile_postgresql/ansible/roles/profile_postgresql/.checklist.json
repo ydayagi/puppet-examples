@@ -1,0 +1,149 @@
+{
+  "module_name": "profile_postgresql",
+  "items": [
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_postgresql/aap-configuration/controller_credential_types.yml",
+      "status": "complete",
+      "description": "AAP credential types configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_postgresql/aap-configuration/controller_credentials.yml",
+      "status": "complete",
+      "description": "AAP credentials configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_postgresql/tasks/validate_credentials.yml",
+      "status": "complete",
+      "description": "Credential validation tasks",
+      "notes": ""
+    },
+    {
+      "category": "structure",
+      "source_path": "metadata.json",
+      "target_path": "ansible/roles/profile_postgresql/meta/main.yml",
+      "status": "complete",
+      "description": "Role metadata generated from Puppet module metadata.json",
+      "notes": "meta/main.yml already exists and is complete (written by prior agent). Skipped to avoid overwriting."
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_postgresql/handlers/main.yml",
+      "status": "complete",
+      "description": "Handlers for postgresql service restart/reload",
+      "notes": "Created handlers for postgresql restart and reload."
+    },
+    {
+      "category": "attributes",
+      "source_path": "data/common.yaml",
+      "target_path": "ansible/roles/profile_postgresql/defaults/main.yml",
+      "status": "complete",
+      "description": "Module-level defaults: postgresql version (default 16)",
+      "notes": "Converted Puppet Hiera common.yaml to Ansible defaults/main.yml with all profile_postgresql variables."
+    },
+    {
+      "category": "attributes",
+      "source_path": "data/os/Debian.yaml",
+      "target_path": "ansible/roles/profile_postgresql/vars/Debian.yml",
+      "status": "complete",
+      "description": "OS-specific variables for Debian/Ubuntu: package names, service name, APT repo location, release, GPG key id and source",
+      "notes": "Converted Puppet Hiera Debian.yaml to Ansible vars/Debian.yml with OS-specific package names, service name, and APT repo settings."
+    },
+    {
+      "category": "structure",
+      "source_path": "data/common.yaml",
+      "target_path": "ansible/roles/profile_postgresql/meta/argument_specs.yml",
+      "status": "complete",
+      "description": "Role argument specs for fail-fast parameter validation (generate after defaults/main.yml is written)",
+      "notes": "Generated argument_specs.yml from defaults/main.yml variables plus AAP credential variables."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_postgresql/tasks/main.yml",
+      "status": "complete",
+      "description": "Main entry point: orchestrates repo \u2192 install \u2192 service ordering; includes health_check file, myDeploy1 artifact download, myCronType1 backup cron, and NOT-SAFELY-CONVERTIBLE custom types (mySecretType1, myFormatType1, mySecretFunction1)",
+      "notes": "Fixed Cat4 ordering (dir before slurp) and Cat2 missing-app guard (stat before cron)."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/repo.pp",
+      "target_path": "ansible/roles/profile_postgresql/tasks/repo.yml",
+      "status": "complete",
+      "description": "Configure PGDG APT repository: add apt key and apt source for postgresql packages",
+      "notes": "Converted apt::source 'pgdg' to ansible.builtin.apt_key + ansible.builtin.apt_repository tasks."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/install.pp",
+      "target_path": "ansible/roles/profile_postgresql/tasks/install.yml",
+      "status": "complete",
+      "description": "Install postgresql packages (postgresql-15, postgresql-contrib-15, libpq-dev)",
+      "notes": "Converted Puppet package resources for postgresql packages to a single ansible.builtin.package task with a list."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/service.pp",
+      "target_path": "ansible/roles/profile_postgresql/tasks/service.yml",
+      "status": "complete",
+      "description": "Ensure postgresql service is running and enabled",
+      "notes": "Converted Puppet service resource to ansible.builtin.service task."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_postgresql/molecule/default/molecule.yml",
+      "status": "complete",
+      "description": "Molecule scenario configuration \u2014 delegated driver, local connection (not docker/podman)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_postgresql/molecule/default/converge.yml",
+      "status": "complete",
+      "description": "Molecule converge playbook \u2014 runs the role via a single ansible.builtin.include_role task",
+      "notes": "Generated converge.yml with single include_role task for profile_postgresql. Includes required credential variables and molecule-safe overrides for deploy URL and health check URL."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_postgresql/molecule/default/verify.yml",
+      "status": "complete",
+      "description": "Molecule verify playbook \u2014 checks postgresql service is running, packages installed, APT repo configured",
+      "notes": "Generated verify.yml with 4 plays: (1) APT repo + package verification, (2) postgresql service state + port 5432, (3) filesystem artifacts (health check dir/file, artifact dir/version.txt), (4) cron job presence and schedule. All loops use prefixed loop_var and bracket notation. No issues found by ansible-lint."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_postgresql/molecule/default/create.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance create stub (delegated driver)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_postgresql/molecule/default/destroy.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance destroy stub (delegated driver)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_postgresql/meta/main.yml",
+      "status": "complete",
+      "description": "Created standard meta/main.yml",
+      "notes": ""
+    }
+  ]
+}

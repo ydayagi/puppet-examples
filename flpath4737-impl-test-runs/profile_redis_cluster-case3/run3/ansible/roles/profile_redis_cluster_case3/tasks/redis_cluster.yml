@@ -1,0 +1,54 @@
+---
+# Converted from: manifests/init.pp
+# Main Redis cluster configuration tasks:
+#   - Installs and configures Redis first (creates the redis system user/group)
+#   - Detects Redis node role (primary or replica)
+#   - Performs health check HTTP GET and writes result to JSON file
+#   - Deploys myapp artifact
+#   - Handles Enterprise Scheduler registration (stub — NOT SAFELY CONVERTIBLE)
+#
+# NOTE: install.yml is included FIRST so that the redis package is installed
+# (and the redis system user/group created) before any subsequent task
+# references owner: redis or writes into /var/lib/redis.
+#
+# NOTE: PuppetDB peer discovery ($redis_nodes) is replaced by Ansible inventory
+# group membership. Use groups['redis_cluster'] or groups['redis_cluster_case3']
+# in playbooks/templates to reference cluster peers.
+
+- name: Install and configure Redis
+  ansible.builtin.include_tasks: install.yml
+
+- name: Detect Redis node role (primary or replica)
+  ansible.builtin.include_tasks: detect_redis_role.yml
+
+- name: Perform health check HTTP GET
+  ansible.builtin.uri:
+    url: "{{ profile_redis_cluster_case3_health_check_url }}"
+    method: GET
+    return_content: true
+    status_code: 200
+  register: profile_redis_cluster_case3_health_check_result
+  ignore_errors: true
+
+- name: Ensure /var/lib/redis directory exists
+  ansible.builtin.file:
+    path: /var/lib/redis
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0750"
+
+- name: Write health check result to JSON file # noqa: M005 - registered variable used in copy content; health check result is from a trusted internal URI task # noqa: L071 - copy with Jinja content is intentional; inline JSON serialisation does not warrant a separate template file
+  ansible.builtin.copy:
+    content: "{{ profile_redis_cluster_case3_health_check_result.json | default(profile_redis_cluster_case3_health_check_result.content) | to_json }}"
+    dest: "{{ profile_redis_cluster_case3_health_check_file }}" # noqa: R114 - path from role-defined variable, not user input
+    owner: redis
+    group: redis
+    mode: "0644"
+    backup: true
+
+- name: Deploy myapp artifact
+  ansible.builtin.include_tasks: deploy_myapp.yml
+
+- name: Enterprise Scheduler registration (requires manual implementation)
+  ansible.builtin.include_tasks: scheduler_registration.yml

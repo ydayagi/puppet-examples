@@ -1,0 +1,118 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure a Redis cluster node with base OS profile
+    description:
+      - Provisions a Redis cluster node on Linux.
+      - Applies a base OS profile including NTP via chrony and syslog via rsyslog.
+      - Installs and configures Redis with password authentication, memory policy, and append-only persistence.
+      - Deploys the myapp companion artifact and registers the node with the Enterprise Scheduler.
+      - Writes a health-check JSON file populated from a local HTTP endpoint.
+    options:
+      profile_redis_cluster_case2_redis_port:
+        type: int
+        required: false
+        default: 6379
+        description: TCP port Redis listens on.
+      profile_redis_cluster_case2_redis_bind:
+        type: str
+        required: false
+        default: 0.0.0.0
+        description: IP address Redis binds to.
+      profile_redis_cluster_case2_maxmemory_mb:
+        type: int
+        required: false
+        default: 2048
+        description: Maximum memory Redis may use, in megabytes.
+      profile_redis_cluster_case2_maxmemory_policy:
+        type: str
+        required: false
+        default: allkeys-lru
+        description: Redis eviction policy when maxmemory is reached.
+      profile_redis_cluster_case2_appendonly:
+        type: bool
+        required: false
+        default: true
+        description: Whether to enable Redis append-only persistence.
+      profile_redis_cluster_case2_appendfsync:
+        type: str
+        required: false
+        default: everysec
+        description: Redis appendfsync mode (always, everysec, no).
+      profile_redis_cluster_case2_log_dir:
+        type: str
+        required: false
+        default: /var/log/redis
+        description: Directory for Redis log files.
+      profile_redis_cluster_case2_health_check_url:
+        type: str
+        required: false
+        default: http://localhost:8080/health
+        description: URL of the local health check endpoint to poll for health_check.json.
+      profile_redis_cluster_case2_health_check_file:
+        type: str
+        required: false
+        default: /var/lib/redis/health_check.json
+        description: Destination path for the health check JSON file.
+      profile_redis_cluster_case2_myapp_version:
+        type: str
+        required: false
+        default: 2.1.0
+        description: Version of the myapp companion artifact to deploy.
+      profile_redis_cluster_case2_myapp_install_dir:
+        type: str
+        required: false
+        default: /opt/myapp
+        description: Installation directory for the myapp companion artifact.
+      profile_redis_cluster_case2_myapp_artifact_url:
+        type: str
+        required: false
+        default: http://artifacts.internal/myapp-2.1.0.tar.gz
+        description: URL to download the myapp artifact tarball from.
+      profile_redis_cluster_case2_manage_ntp:
+        type: bool
+        required: false
+        default: true
+        description: Whether to install and enable the chrony NTP daemon.
+      profile_redis_cluster_case2_manage_syslog:
+        type: bool
+        required: false
+        default: true
+        description: Whether to install and enable the rsyslog syslog daemon.
+      profile_redis_cluster_case2_manage_utils:
+        type: bool
+        required: false
+        default: true
+        description: Whether to include the base_utils class (OS utility packages).
+      profile_redis_cluster_case2_secure_logging:
+        type: bool
+        required: false
+        default: true
+        description: >-
+          Controls no_log on tasks that handle secret credentials.
+          Set to false only for debugging — this will expose secrets in job output.
+      redis_password:
+        type: str
+        required: true
+        description: >-
+          Redis requirepass password. Injected at runtime by the AAP credential type.
+          WARNING: The Puppet source defaulted to the insecure plaintext value 'CHANGEME'.
+          Always override this with a strong password via the AAP credential.
+      redis_service_token:
+        type: str
+        required: true
+        description: >-
+          Service token for the Enterprise Scheduler registration.
+          Injected at runtime by the AAP credential type.
+      secret_store_url:
+        type: str
+        required: true
+        description: >-
+          URL of the internal secret store (CompanyInternal::SecretStore).
+          Injected at runtime by the AAP credential type.
+      secret_store_auth_token:
+        type: str
+        required: true
+        description: >-
+          Authentication token for the internal secret store.
+          Injected at runtime by the AAP credential type.

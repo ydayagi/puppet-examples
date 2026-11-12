@@ -1,0 +1,12 @@
+---
+# handlers/main.yml — profile_postgresql handlers
+
+- name: Restart postgresql
+  ansible.builtin.service:
+    name: "{{ profile_postgresql_service_name }}"
+    state: restarted
+
+- name: Reload postgresql
+  ansible.builtin.service:
+    name: "{{ profile_postgresql_service_name }}"
+    state: reloaded

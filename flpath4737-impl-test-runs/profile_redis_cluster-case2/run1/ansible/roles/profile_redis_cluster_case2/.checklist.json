@@ -1,0 +1,117 @@
+{
+  "module_name": "profile_redis_cluster_case2",
+  "items": [
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/aap-configuration/controller_credential_types.yml",
+      "status": "complete",
+      "description": "AAP credential types configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/aap-configuration/controller_credentials.yml",
+      "status": "complete",
+      "description": "AAP credentials configuration",
+      "notes": ""
+    },
+    {
+      "category": "credentials",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/validate_credentials.yml",
+      "status": "complete",
+      "description": "Credential validation tasks",
+      "notes": ""
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/meta/main.yml",
+      "status": "complete",
+      "description": "Role metadata file",
+      "notes": "Created standard meta/main.yml"
+    },
+    {
+      "category": "structure",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/handlers/main.yml",
+      "status": "complete",
+      "description": "Role handlers (Redis service restart/reload handlers)",
+      "notes": "Created standard Redis restart handler."
+    },
+    {
+      "category": "attributes",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/defaults/main.yml",
+      "status": "complete",
+      "description": "Class parameter defaults: redis_port (6379), redis_password ('CHANGEME' \u2192 Vault), maxmemory_mb (2048), maxmemory_policy ('allkeys-lru')",
+      "notes": "Converted Puppet class parameters to Ansible defaults. redis_password is injected by AAP credential type at runtime."
+    },
+    {
+      "category": "structure",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/meta/argument_specs.yml",
+      "status": "complete",
+      "description": "Role argument specs for fail-fast parameter validation (generate after defaults/main.yml)",
+      "notes": "Generated argument_specs.yml from defaults/main.yml plus AAP credential variables documented as required/injected."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/init.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/main.yml",
+      "status": "complete",
+      "description": "Main manifest: redis_role fact, health check (myFunction1\u2192uri), health_check.json file, myapp deploy (myDeploy1\u2192get_url/unarchive), mySecretFunction1 (NOT SAFELY CONVERTIBLE), mySecretType1/schedulerctl (NOT SAFELY CONVERTIBLE), contains install subclass",
+      "notes": "Fixed Cat4 ordering: moved health check block to after myapp deploy. Fixed Cat2: added stat guard on myapp install dir before hitting port-8080 health endpoint (myapp is not started as a service by this role)."
+    },
+    {
+      "category": "recipes",
+      "source_path": "manifests/install.pp",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/tasks/install.yml",
+      "status": "complete",
+      "description": "Install subclass: Redis package/service/config (bind 0.0.0.0, port 6379, AOF persistence), /var/log/redis directory (owner redis:redis, mode 0755)",
+      "notes": "Converted Puppet redis class + file resource to package/template/service tasks. Template embeds redis_password so no_log is set."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/molecule.yml",
+      "status": "complete",
+      "description": "Molecule scenario configuration \u2014 delegated driver, local connection",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/converge.yml",
+      "status": "complete",
+      "description": "Molecule converge playbook \u2014 runs the role via ansible.builtin.include_role",
+      "notes": "Generated converge.yml with single include_role task for profile_redis_cluster_case2. No faked filesystem state."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/verify.yml",
+      "status": "complete",
+      "description": "Molecule verify playbook \u2014 checks /var/lib/redis/health_check.json, /var/log/redis, /opt/myapp/version.txt, Redis on port 6379, health endpoint",
+      "notes": "Generated verify.yml split into 2 plays (filesystem state + service/network). Checks: /var/log/redis dir (redis:redis 0755), /var/lib/redis/health_check.json (redis:redis 0644, valid JSON), /opt/myapp dir, /opt/myapp/version.txt (contains 2.1.0), redis.service running+enabled, port 6379 listening, health endpoint 200 OK."
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/create.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance create (delegated driver)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    },
+    {
+      "category": "molecule",
+      "source_path": "N/A",
+      "target_path": "ansible/roles/profile_redis_cluster_case2/molecule/default/destroy.yml",
+      "status": "complete",
+      "description": "Molecule no-op instance destroy (delegated driver)",
+      "notes": "Created by MoleculeAgent (deterministic scaffold)"
+    }
+  ]
+}

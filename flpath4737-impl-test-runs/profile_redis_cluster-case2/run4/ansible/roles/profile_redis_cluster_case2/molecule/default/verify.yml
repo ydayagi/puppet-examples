@@ -1,0 +1,131 @@
+---
+# Play 1: Verify filesystem paths, ownership, and file content
+- name: Verify filesystem state
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Stat key filesystem paths
+      ansible.builtin.stat:
+        path: "{{ item_path }}"
+      loop:
+        - /var/log/redis
+        - /var/lib/redis/health_check.json
+        - /opt/myapp
+        - /opt/myapp/version.txt
+        - /etc/redis/redis.conf
+      loop_control:
+        loop_var: item_path
+      register: profile_redis_cluster_case2_stat_results
+
+    - name: Assert all expected paths exist
+      ansible.builtin.assert:
+        that:
+          - item_stat['stat']['exists']
+        fail_msg: "Expected path does not exist"
+      loop: "{{ profile_redis_cluster_case2_stat_results['results'] }}"
+      loop_control:
+        loop_var: item_stat
+
+    - name: Assert /var/log/redis is a directory with correct ownership and mode
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_stat_results['results'][0]['stat']['isdir']
+          - profile_redis_cluster_case2_stat_results['results'][0]['stat']['pw_name'] == 'redis'
+          - profile_redis_cluster_case2_stat_results['results'][0]['stat']['gr_name'] == 'redis'
+          - profile_redis_cluster_case2_stat_results['results'][0]['stat']['mode'] == '0755'
+        fail_msg: "/var/log/redis directory ownership or mode is incorrect"
+
+    - name: Assert /var/lib/redis/health_check.json has correct ownership and mode
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_stat_results['results'][1]['stat']['isreg']
+          - profile_redis_cluster_case2_stat_results['results'][1]['stat']['pw_name'] == 'redis'
+          - profile_redis_cluster_case2_stat_results['results'][1]['stat']['gr_name'] == 'redis'
+          - profile_redis_cluster_case2_stat_results['results'][1]['stat']['mode'] == '0644'
+        fail_msg: "/var/lib/redis/health_check.json ownership or mode is incorrect"
+
+    - name: Assert /opt/myapp is a directory
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_stat_results['results'][2]['stat']['isdir']
+        fail_msg: "/opt/myapp is not a directory"
+
+    - name: Read myapp version file
+      ansible.builtin.slurp:
+        src: /opt/myapp/version.txt
+      register: profile_redis_cluster_case2_version_content
+
+    - name: Assert myapp version file contains 2.1.0
+      ansible.builtin.assert:
+        that:
+          - (profile_redis_cluster_case2_version_content['content'] | b64decode | trim) == '2.1.0'
+        fail_msg: "myapp version.txt does not contain expected version 2.1.0"
+
+    - name: Read health_check.json content
+      ansible.builtin.slurp:
+        src: /var/lib/redis/health_check.json
+      register: profile_redis_cluster_case2_health_check_content
+
+    - name: Assert health_check.json contains valid JSON
+      ansible.builtin.assert:
+        that:
+          - profile_redis_cluster_case2_health_check_content['content'] | b64decode | from_json is mapping
+        fail_msg: "/var/lib/redis/health_check.json does not contain valid JSON"
+
+    - name: Read Redis configuration file
+      ansible.builtin.slurp:
+        src: /etc/redis/redis.conf
+      register: profile_redis_cluster_case2_redis_conf_content
+
+    - name: Assert Redis config contains expected directives
+      ansible.builtin.assert:
+        that:
+          - "'port 6379' in (profile_redis_cluster_case2_redis_conf_content['content'] | b64decode)"
+          - "'bind 0.0.0.0' in (profile_redis_cluster_case2_redis_conf_content['content'] | b64decode)"
+          - "'maxmemory 2048mb' in (profile_redis_cluster_case2_redis_conf_content['content'] | b64decode)"
+          - "'maxmemory-policy allkeys-lru' in (profile_redis_cluster_case2_redis_conf_content['content'] | b64decode)"
+          - "'appendonly yes' in (profile_redis_cluster_case2_redis_conf_content['content'] | b64decode)"
+          - "'appendfsync everysec' in (profile_redis_cluster_case2_redis_conf_content['content'] | b64decode)"
+        fail_msg: "Redis configuration is missing one or more expected directives"
+
+# Play 2: Verify service states and Redis port availability
+- name: Verify service states
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Redis service is active and enabled
+      ansible.builtin.assert:
+        that:
+          - "'redis.service' in ansible_facts['services'] or 'redis-server.service' in ansible_facts['services']"
+        fail_msg: "Neither redis.service nor redis-server.service found in service facts"
+
+    - name: Assert Redis service is running
+      ansible.builtin.assert:
+        that: >-
+          (ansible_facts['services']['redis.service']['state'] | default('') == 'running') or
+          (ansible_facts['services']['redis-server.service']['state'] | default('') == 'running')
+        fail_msg: "Redis service is not in running state"
+
+    - name: Assert chronyd service is active and running
+      ansible.builtin.assert:
+        that:
+          - "'chronyd.service' in ansible_facts['services']"
+          - ansible_facts['services']['chronyd.service']['state'] == 'running'
+        fail_msg: "chronyd service is not running"
+
+    - name: Assert rsyslog service is active and running
+      ansible.builtin.assert:
+        that:
+          - "'rsyslog.service' in ansible_facts['services']"
+          - ansible_facts['services']['rsyslog.service']['state'] == 'running'
+        fail_msg: "rsyslog service is not running"
+
+    - name: Assert Redis is listening on port 6379
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 6379
+        state: started
+        timeout: 10

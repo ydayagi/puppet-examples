@@ -1,0 +1,19 @@
+---
+# Redis instance configuration
+redis_cluster_case2_redis_port: 6379
+# redis_password is injected by AAP credential type at runtime (secret)
+redis_cluster_case2_maxmemory_mb: 2048
+redis_cluster_case2_maxmemory_policy: allkeys-lru
+# Application deployment
+redis_cluster_case2_myapp_version: 2.1.0
+redis_cluster_case2_myapp_url: http://artifacts.internal/myapp-2.1.0.tar.gz
+redis_cluster_case2_myapp_install_dir: /opt/myapp
+# Redis paths
+redis_cluster_case2_log_dir: /var/log/redis
+redis_cluster_case2_data_dir: /var/lib/redis
+redis_cluster_case2_health_check_url: http://localhost:8080/health
+redis_cluster_case2_health_check_file: /var/lib/redis/health_check.json
+# Inventory group containing all Redis cluster members (replaces PuppetDB query)
+redis_cluster_case2_cluster_group: redis_cluster
+# Secure logging toggle — set to false only for debugging
+redis_cluster_case2_secure_logging: true
